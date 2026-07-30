@@ -44,6 +44,8 @@ export interface GameSnapshot {
   result: GameResult;
   /** Moves taken back but still available to redo, in replay order. */
   redoStack: RedoEntry[];
+  /** Whether play was halted when the game was saved. */
+  isPaused: boolean;
   /** Whether this game's result has already been counted towards the rating. */
   ratingApplied: boolean;
 }
@@ -127,6 +129,7 @@ export function loadGame(): RestoredGame | null {
         parsed.redoStack.every((entry) => entry && typeof entry.san === 'string')
           ? parsed.redoStack
           : [],
+      isPaused: parsed.isPaused === true,
       ratingApplied: parsed.ratingApplied === true,
     };
 

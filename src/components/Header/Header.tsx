@@ -117,6 +117,8 @@ export function TurnBar() {
   const fen = useGameStore((state) => state.fen);
   const result = useGameStore((state) => state.result);
   const playerColor = useGameStore((state) => state.playerColor);
+  const isPaused = useGameStore((state) => state.isPaused);
+  const setPaused = useGameStore((state) => state.setPaused);
 
   /**
    * Material difference in conventional points, from your side.
@@ -181,14 +183,43 @@ export function TurnBar() {
   const turn = fen.split(' ')[1] === 'b' ? 'black' : 'white';
   const isPlayer = turn === playerColor;
 
+  // Paused is the loudest thing the bar can say: nothing moves until it is
+  // cleared, so the way out has to be right there.
+  if (isPaused) {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-xs font-semibold ring-1 ring-amber-400/40">
+        <span className="flex items-center gap-2 text-amber-200" aria-live="polite">
+          <span aria-hidden>⏸</span>
+          Paused — {isPlayer ? 'your move' : "opponent's move"} when you resume
+        </span>
+        <button
+          type="button"
+          onClick={() => void setPaused(false)}
+          className="shrink-0 rounded-lg bg-amber-400 px-3 py-1 text-xs font-bold text-slate-950 transition-colors hover:bg-amber-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300"
+        >
+          ▶ Resume
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-900/60 px-3 py-2 text-xs font-semibold ring-1 ring-slate-800">
-      <span className="flex items-center gap-2 text-slate-200" aria-live="polite">
+      <button
+        type="button"
+        onClick={() => void setPaused(true)}
+        title="Pause the game"
+        className="flex items-center gap-2 rounded-lg text-slate-200 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400"
+        aria-live="polite"
+      >
         <span aria-hidden className={turn === 'white' ? 'text-slate-100' : 'text-slate-500'}>
           ●
         </span>
         {isPlayer ? 'Your move' : "Opponent's move"}
-      </span>
+        <span aria-hidden className="text-slate-600">
+          ⏸
+        </span>
+      </button>
       <span className="flex items-center gap-3">
         {material}
         {youAre}

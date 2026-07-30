@@ -113,6 +113,14 @@ interface GameStore {
   result: GameResult;
   /** Ply the user is reviewing, or null when following the live position. */
   viewingPly: number | null;
+  /**
+   * True while the game is halted: neither side moves.
+   *
+   * Entered automatically by flipping, which hands your move to the engine — you
+   * almost always want to look at the position from your new side before it
+   * fires off a reply.
+   */
+  isPaused: boolean;
 
   // ── Engine ───────────────────────────────────────────────────────────────
   engineStatus: EngineStatus;
@@ -185,6 +193,8 @@ interface GameStore {
   resign: () => void;
   /** Swaps which side you play; the board follows so your colour is at the bottom. */
   flipBoard: () => Promise<void>;
+  /** Halts or resumes play. Resuming lets the engine move if it is its turn. */
+  setPaused: (paused: boolean) => Promise<void>;
   setOpponentElo: (elo: number) => void;
   setCoachElo: (elo: number) => void;
   setCoachEnabled: (enabled: boolean) => Promise<void>;
@@ -369,6 +379,13 @@ export const useGameStore = create<GameStore>((set, get) => {
    * depends on how weak the opponent is.
    */
   const playOpponentMove = async (token: number) => {
+    // Checked here rather than at each call site so boot, resume, redo and the
+    // normal move cycle all respect a pause without repeating the test.
+    if (get().isPaused) {
+      set({ engineStatus: 'ready' });
+      return;
+    }
+
     set({ isOpponentThinking: true, engineStatus: 'thinking' });
 
     try {
@@ -585,6 +602,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       isHintLoading: false,
       review: null,
       pendingPromotion: null,
+      isPaused: false,
       isOpponentThinking: false,
       isCoachThinking: false,
       engineStatus: 'loading',
@@ -660,6 +678,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       engineError: null,
       pendingPromotion: null,
       redoStack: [],
+      isPaused: false,
       // A new board is a new game as far as the rating is concerned.
       ratingApplied: false,
     });
@@ -681,6 +700,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     moves: restored?.snapshot.moves ?? [],
     result: restored?.snapshot.result ?? { status: 'in-progress' },
     viewingPly: null,
+    isPaused: restored?.snapshot.isPaused ?? false,
 
     engineStatus: 'idle',
     engineError: null,
@@ -728,7 +748,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     playerMove(from, to, promotion) {
       const state = get();
       if (state.result.status !== 'in-progress') return false;
-      if (state.isOpponentThinking) return false;
+      if (state.isOpponentThinking || state.isPaused) return false;
       if (game.turn() !== playerCode(state.playerColor)) return false;
 
       const fenBefore = game.fen();
@@ -883,11 +903,25 @@ export const useGameStore = create<GameStore>((set, get) => {
       if (state.isOpponentThinking) return;
 
       const next: PlayerColor = state.playerColor === 'white' ? 'black' : 'white';
-      set({ playerColor: next, boardOrientation: next, hint: null });
+      // Pausing is the point: swapping sides hands the move to the engine, and
+      // playing it instantly would give you no chance to see the position from
+      // the side you just took.
+      set({ playerColor: next, boardOrientation: next, hint: null, isPaused: true });
       refreshBriefing();
+    },
 
-      // Handing over your side mid-move means the move now belongs to the engine.
-      if (get().result.status === 'in-progress' && game.turn() !== playerCode(next)) {
+    async setPaused(paused) {
+      if (get().isPaused === paused) return;
+      set({ isPaused: paused });
+
+      if (paused) {
+        getEngine().stop();
+        return;
+      }
+
+      refreshBriefing();
+      const { result, playerColor } = get();
+      if (result.status === 'in-progress' && game.turn() !== playerCode(playerColor)) {
         await playOpponentMove(generation);
       }
     },
@@ -1156,6 +1190,7 @@ function persistenceKey(state: GameStore): string {
     state.feedback.length,
     state.result.status,
     state.redoStack.length,
+    state.isPaused,
     state.playerColor,
     state.boardOrientation,
     state.opponentElo,
@@ -1193,6 +1228,7 @@ useGameStore.subscribe((state) => {
     feedback: state.feedback,
     result: state.result,
     redoStack: state.redoStack,
+    isPaused: state.isPaused,
     ratingApplied: state.ratingApplied,
   });
 });

@@ -54,6 +54,36 @@ export function TrashIcon({ className = 'h-4 w-4' }: { className?: string }) {
   );
 }
 
+/** Two upright bars: halt play. */
+export function PauseIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg {...base} className={className}>
+      <line x1="9" y1="4" x2="9" y2="20" />
+      <line x1="15" y1="4" x2="15" y2="20" />
+    </svg>
+  );
+}
+
+/** Filled triangle: resume play. */
+export function PlayIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg {...base} className={className} fill="currentColor">
+      <polygon points="6 3 20 12 6 21 6 3" />
+    </svg>
+  );
+}
+
+/** Circular arrow: start a fresh game. */
+export function NewGameIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg {...base} className={className}>
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+    </svg>
+  );
+}
+
 /** Two vertical arrows: flip the board / swap sides. */
 export function FlipIcon({ className = 'h-4 w-4' }: { className?: string }) {
   return (

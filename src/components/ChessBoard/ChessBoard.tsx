@@ -42,6 +42,7 @@ export const ChessBoard = memo(function ChessBoard() {
   const result = useGameStore((state) => state.result);
   const isOpponentThinking = useGameStore((state) => state.isOpponentThinking);
   const hint = useGameStore((state) => state.hint);
+  const isPaused = useGameStore((state) => state.isPaused);
   const editMode = useGameStore((state) => state.editMode);
   const editFen = useGameStore((state) => state.editFen);
   const editSquare = useGameStore((state) => state.editSquare);
@@ -69,6 +70,7 @@ export const ChessBoard = memo(function ChessBoard() {
   const interactive =
     !editMode &&
     !isBrowsing &&
+    !isPaused &&
     result.status === 'in-progress' &&
     !isOpponentThinking &&
     turn === playerColor;

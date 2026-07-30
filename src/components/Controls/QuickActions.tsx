@@ -2,19 +2,28 @@ import { memo } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { modifierKeyLabel } from '../../utils/platform';
 import { Button } from '../ui/Button';
-import { FlipIcon, RedoIcon, UndoIcon } from '../ui/icons';
+import {
+  FlipIcon,
+  NewGameIcon,
+  PauseIcon,
+  PlayIcon,
+  RedoIcon,
+  UndoIcon,
+} from '../ui/icons';
 
 /**
- * The three controls used mid-game, docked directly beneath the board.
+ * The controls used constantly while playing, docked directly beneath the board.
  *
- * Undo, Hint and Flip live here rather than in the settings panel because they
- * are reached constantly while playing — on a phone this row sits in the thumb
- * zone right under the board, instead of below the move list where it would need
- * a scroll. Anything you only touch between games stays in the Game panel.
+ * Undo, Redo, Hint, Flip, New game and Pause live here rather than in the
+ * settings panel because they are reached on almost every move — on a phone this
+ * sits in the thumb zone right under the board, instead of below the move list
+ * where it would need a scroll. Anything you only touch between games stays in
+ * the Game panel.
  */
 export const QuickActions = memo(function QuickActions() {
   const newGame = useGameStore((state) => state.newGame);
-  const sanHistory = useGameStore((state) => state.sanHistory);
+  const isPaused = useGameStore((state) => state.isPaused);
+  const setPaused = useGameStore((state) => state.setPaused);
   const undoMove = useGameStore((state) => state.undoMove);
   const redoMove = useGameStore((state) => state.redoMove);
   const redoCount = useGameStore((state) => state.redoStack.length);
@@ -34,7 +43,7 @@ export const QuickActions = memo(function QuickActions() {
     result.status === 'in-progress' &&
     (fen.split(' ')[1] === 'b' ? 'black' : 'white') === playerColor;
 
-  const hasMoves = sanHistory.length > 0;
+  const inProgress = result.status === 'in-progress';
 
   return (
     <div className="space-y-2">
@@ -93,11 +102,34 @@ export const QuickActions = memo(function QuickActions() {
         </Button>
       </div>
 
-      {/* Reads "Start game" on an untouched board and "New game" once there is a
-          game to replace, so the label never offers to restart what has not begun. */}
-      <Button variant="primary" onClick={() => void newGame()} className="min-h-12 w-full">
-        <span aria-hidden>{hasMoves ? '↻' : '▶'}</span> {hasMoves ? 'New game' : 'Start game'}
-      </Button>
+      <div className="grid grid-cols-2 gap-2">
+        <Button variant="primary" onClick={() => void newGame()} className="min-h-12">
+          <NewGameIcon /> New game
+        </Button>
+
+        {/* A toggle, not a one-shot: flipping the board pauses the game, and this
+            button has to show that it is already down when it does. */}
+        <Button
+          variant={isPaused ? 'success' : 'secondary'}
+          onClick={() => void setPaused(!isPaused)}
+          aria-pressed={isPaused}
+          disabled={!inProgress}
+          title={
+            isPaused ? 'Resume play' : 'Pause the game — neither side moves until you resume'
+          }
+          className="min-h-12"
+        >
+          {isPaused ? (
+            <>
+              <PlayIcon /> Resume
+            </>
+          ) : (
+            <>
+              <PauseIcon /> Pause
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   );
 });
