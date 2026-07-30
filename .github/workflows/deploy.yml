@@ -1,0 +1,57 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Pushing the built site to the gh-pages branch needs write access to the repo.
+permissions:
+  contents: write
+
+# Only one deployment at a time; newer pushes supersede queued ones.
+concurrency:
+  group: gh-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `npm ci` pulls the stockfish package; `prebuild` copies the WASM engine
+      # into public/stockfish/ before Vite collects static assets.
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Push dist/ to gh-pages
+        run: |
+          set -euo pipefail
+          cd dist
+
+          # Stop GitHub Pages running the output through Jekyll, which would
+          # otherwise skip files and directories beginning with an underscore.
+          touch .nojekyll
+
+          git init -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Deploy ${GITHUB_SHA}"
+
+          # A fresh orphan branch, force-pushed. The Stockfish WASM binary is
+          # ~7 MB, so keeping deploy history would add that much to the
+          # repository on every single deploy; each push replaces the branch
+          # with a single commit instead.
+          git push --force \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

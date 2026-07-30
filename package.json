@@ -1,0 +1,35 @@
+{
+  "name": "ai-chess-coach",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Play chess against Stockfish in the browser with live, plain-English coaching after every move.",
+  "scripts": {
+    "predev": "node scripts/sync-stockfish.mjs",
+    "dev": "vite",
+    "prebuild": "node scripts/sync-stockfish.mjs",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit"
+  },
+  "dependencies": {
+    "chess.js": "^1.4.0",
+    "framer-motion": "^12.23.12",
+    "react": "^19.1.1",
+    "react-chessboard": "^5.10.0",
+    "react-dom": "^19.1.1",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "@vitejs/plugin-react": "^5.0.0",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "stockfish": "^18.0.8",
+    "tailwindcss": "^3.4.17",
+    "typescript": "~5.9.2",
+    "vite": "^7.1.3"
+  }
+}

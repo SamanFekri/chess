@@ -141,3 +141,12 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Claude
+.claude/
+.claude*
+CLAUDE.md
+claude/
+
+# Stockfish engine binaries, copied out of node_modules by scripts/sync-stockfish.mjs
+public/stockfish/

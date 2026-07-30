@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    /* Respect the iOS safe area so the layout is not clipped by the notch. */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+      env(safe-area-inset-left);
+    background-color: #020617;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-slate-950 font-sans text-slate-100 antialiased;
+    /* The board handles its own gestures; the page never scrolls sideways. */
+    overflow-x: hidden;
+  }
+
+  /* Visible focus for keyboard users, suppressed for pointer interaction. */
+  :focus-visible {
+    outline-offset: 2px;
+  }
+
+  /* Range input styling that survives across engines, since the difficulty
+     slider is a primary control rather than an afterthought. */
+  input[type='range'] {
+    @apply appearance-none rounded-full bg-slate-800;
+    height: 0.375rem;
+  }
+
+  input[type='range']::-webkit-slider-thumb {
+    @apply appearance-none rounded-full bg-blue-500 shadow-md;
+    height: 1.25rem;
+    width: 1.25rem;
+    margin-top: -0.05rem;
+  }
+
+  input[type='range']::-moz-range-thumb {
+    @apply rounded-full border-0 bg-blue-500;
+    height: 1.25rem;
+    width: 1.25rem;
+  }
+}
+
+@layer components {
+  /**
+   * Speech cloud used for the verdict bubble over the board.
+   *
+   * The cloud silhouette is assembled from a rounded body plus circular "puffs",
+   * all filled with the same colour and carrying no borders of their own. The
+   * outline and shadow live on the wrapper as `drop-shadow`, which traces the
+   * combined alpha of every child — so the puffs melt into the body instead of
+   * showing seams where they overlap, which is what happens if each part draws
+   * its own border.
+   */
+  .coach-cloud {
+    position: relative;
+    filter: drop-shadow(0 10px 18px rgba(2, 6, 23, 0.75))
+      drop-shadow(0 0 4px var(--cloud-glow, transparent));
+  }
+
+  .coach-cloud__body {
+    position: relative;
+    z-index: 1;
+    border-radius: 1.5rem;
+    background: var(--cloud-bg);
+  }
+
+  /* Puffs and the trailing tail dots: pure fill, no border, behind the body. */
+  .coach-cloud__puff {
+    position: absolute;
+    z-index: 0;
+    border-radius: 9999px;
+    background: var(--cloud-bg);
+  }
+}
+
+@layer utilities {
+  /* Slimmer scrollbars inside the coach and move panels. */
+  .overflow-y-auto {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(51 65 85) transparent;
+  }
+
+  .overflow-y-auto::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .overflow-y-auto::-webkit-scrollbar-thumb {
+    background-color: rgb(51 65 85);
+    border-radius: 9999px;
+  }
+}
+
+/* Honour a reduced-motion preference: transitions become instant rather than
+   removed, so nothing depends on an animation completing. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
