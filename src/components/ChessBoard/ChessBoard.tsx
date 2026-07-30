@@ -46,6 +46,17 @@ export const ChessBoard = memo(function ChessBoard() {
   const editFen = useGameStore((state) => state.editFen);
   const editSquare = useGameStore((state) => state.editSquare);
   const moveEditPiece = useGameStore((state) => state.moveEditPiece);
+  const editPlayerColor = useGameStore((state) => state.editPlayerColor);
+
+  /**
+   * While editing, the board follows the side being set up rather than the
+   * orientation of the game underneath, so the position is built from the same
+   * point of view it will be played from.
+   *
+   * Derived rather than written into `boardOrientation`, so cancelling the editor
+   * leaves the running game's orientation exactly as it was.
+   */
+  const displayOrientation = editMode ? editPlayerColor : orientation;
 
   const isBrowsing = viewingPly !== null;
   const displayFen = useMemo(() => {
@@ -82,7 +93,7 @@ export const ChessBoard = memo(function ChessBoard() {
       <Chessboard
         options={{
           position: displayFen,
-          boardOrientation: orientation,
+          boardOrientation: displayOrientation,
           // In edit mode a tap places or erases a piece instead of moving one,
           // and a drag moves a piece anywhere with no legality checks at all.
           onSquareClick: editMode
