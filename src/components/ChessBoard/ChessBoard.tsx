@@ -5,6 +5,7 @@ import { useBoardInteraction } from '../../hooks/useBoardInteraction';
 import { useGameStore } from '../../store/gameStore';
 import { CoachBubble } from '../CoachBubble/CoachBubble';
 import { MoveQualityAnnouncement, MoveQualityBadge } from './MoveQualityBadge';
+import { PromotionChooser } from './PromotionChooser';
 
 /** Board colours, chosen for contrast against the slate UI in dark mode. */
 const LIGHT_SQUARE = '#dfe6ee';
@@ -44,6 +45,7 @@ export const ChessBoard = memo(function ChessBoard() {
   const editMode = useGameStore((state) => state.editMode);
   const editFen = useGameStore((state) => state.editFen);
   const editSquare = useGameStore((state) => state.editSquare);
+  const moveEditPiece = useGameStore((state) => state.moveEditPiece);
 
   const isBrowsing = viewingPly !== null;
   const displayFen = useMemo(() => {
@@ -81,17 +83,25 @@ export const ChessBoard = memo(function ChessBoard() {
         options={{
           position: displayFen,
           boardOrientation: orientation,
-          // In edit mode a tap places or erases a piece instead of moving one.
+          // In edit mode a tap places or erases a piece instead of moving one,
+          // and a drag moves a piece anywhere with no legality checks at all.
           onSquareClick: editMode
             ? ({ square }) => editSquare(square as Square)
             : onSquareClick,
-          onPieceDrop,
-          onPieceDrag,
+          onPieceDrop: editMode
+            ? ({ sourceSquare, targetSquare }) => {
+                moveEditPiece(sourceSquare as Square, targetSquare as Square | null);
+                return true;
+              }
+            : onPieceDrop,
+          onPieceDrag: editMode ? undefined : onPieceDrag,
           // Highlights only describe the live position.
           squareStyles: isBrowsing || editMode ? {} : squareStyles,
           arrows,
           arrowOptions: ARROW_OPTIONS,
-          allowDragging: interactive,
+          allowDragging: editMode || interactive,
+          // Dragging a piece off the board is how you delete it while editing.
+          allowDragOffBoard: editMode,
           animationDurationInMs: 180,
           showNotation: true,
           lightSquareStyle: { backgroundColor: LIGHT_SQUARE },
@@ -118,10 +128,13 @@ export const ChessBoard = memo(function ChessBoard() {
         </>
       )}
 
+      {/* Held promotions block the board, so the chooser sits above everything. */}
+      <PromotionChooser />
+
       {editMode && (
         <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-2">
           <span className="rounded-full bg-slate-950/85 px-3 py-1 text-center text-xs font-medium text-blue-200 ring-1 ring-blue-400/40">
-            Edit mode — tap a square to place a piece
+            Edit mode — tap to place, drag to move, drag off the board to remove
           </span>
         </div>
       )}

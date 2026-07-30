@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { modifierKeyLabel } from '../../utils/platform';
 import { Button } from '../ui/Button';
+import { FlipIcon, RedoIcon, UndoIcon } from '../ui/icons';
 
 /**
  * The three controls used mid-game, docked directly beneath the board.
@@ -15,6 +16,8 @@ export const QuickActions = memo(function QuickActions() {
   const newGame = useGameStore((state) => state.newGame);
   const sanHistory = useGameStore((state) => state.sanHistory);
   const undoMove = useGameStore((state) => state.undoMove);
+  const redoMove = useGameStore((state) => state.redoMove);
+  const redoCount = useGameStore((state) => state.redoStack.length);
   const flipBoard = useGameStore((state) => state.flipBoard);
   const requestHint = useGameStore((state) => state.requestHint);
   const dismissHint = useGameStore((state) => state.dismissHint);
@@ -36,7 +39,7 @@ export const QuickActions = memo(function QuickActions() {
   return (
     <div className="space-y-2">
       <div
-        className={`grid gap-2 ${coachEnabled ? 'grid-cols-3' : 'grid-cols-2'}`}
+        className={`grid gap-2 ${coachEnabled ? 'grid-cols-4' : 'grid-cols-3'}`}
         role="group"
         aria-label="Quick actions"
       >
@@ -44,10 +47,23 @@ export const QuickActions = memo(function QuickActions() {
           variant="secondary"
           onClick={() => void undoMove()}
           disabled={moves.length === 0 || isOpponentThinking}
-          title={`Take back your last move (${modifierKeyLabel()}+Z)`}
+          title={`Take back your last move (${modifierKeyLabel()}+Z). Press repeatedly to go further back.`}
           className="min-h-12"
         >
-          <span aria-hidden>↶</span> Undo
+          <UndoIcon /> Undo
+        </Button>
+
+        <Button
+          variant="secondary"
+          onClick={() => void redoMove()}
+          disabled={redoCount === 0 || isOpponentThinking}
+          title={`Replay a taken-back move (${modifierKeyLabel()}+Shift+Z)`}
+          className="min-h-12"
+        >
+          <RedoIcon /> Redo
+          {redoCount > 0 && (
+            <span className="text-xs font-normal text-slate-400">{redoCount}</span>
+          )}
         </Button>
 
         {/* A hint is coaching, so it goes away with the coach. The button toggles:
@@ -73,7 +89,7 @@ export const QuickActions = memo(function QuickActions() {
           title="Swap sides — you play the colour at the bottom of the board"
           className="min-h-12"
         >
-          <span aria-hidden>⇅</span> Flip
+          <FlipIcon /> Flip
         </Button>
       </div>
 

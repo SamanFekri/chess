@@ -268,6 +268,7 @@ function TransferPanel() {
   const fen = useGameStore((state) => state.fen);
   const playerColor = useGameStore((state) => state.playerColor);
   const opponentElo = useGameStore((state) => state.opponentElo);
+  const startFen = useGameStore((state) => state.startFen);
   const result = useGameStore((state) => state.result);
   const importPgn = useGameStore((state) => state.importPgn);
   const importFen = useGameStore((state) => state.importFen);
@@ -276,7 +277,7 @@ function TransferPanel() {
   const [text, setText] = useState('');
   const [status, setStatus] = useState<{ tone: 'ok' | 'error'; message: string } | null>(null);
 
-  const pgn = () => buildPgn(sanHistory, { playerColor, opponentElo, result });
+  const pgn = () => buildPgn(sanHistory, { playerColor, opponentElo, result, startFen });
 
   /** Guesses whether the pasted text is a FEN or a PGN and imports accordingly. */
   const handleImport = async () => {

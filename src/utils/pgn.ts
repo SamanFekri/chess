@@ -1,4 +1,4 @@
-import { Chess, validateFen } from 'chess.js';
+import { Chess, DEFAULT_POSITION, validateFen } from 'chess.js';
 import { UNLIMITED_ELO } from '../engine/stockfish';
 import type { GameResult, PlayerColor } from '../types';
 
@@ -8,6 +8,8 @@ export interface PgnMeta {
   /** Opponent strength setting, written into the engine's player name. */
   opponentElo: number;
   result: GameResult;
+  /** Position the game began from; omitted means the standard opening. */
+  startFen?: string;
 }
 
 /** PGN result token for a finished (or unfinished) game. */
@@ -24,7 +26,8 @@ function resultToken(result: GameResult): string {
  * @param meta     Who played which colour, engine level and the result.
  */
 export function buildPgn(sanMoves: string[], meta: PgnMeta): string {
-  const game = new Chess();
+  const startFen = meta.startFen ?? DEFAULT_POSITION;
+  const game = new Chess(startFen);
   for (const san of sanMoves) {
     try {
       game.move(san);
@@ -47,12 +50,19 @@ export function buildPgn(sanMoves: string[], meta: PgnMeta): string {
   game.setHeader('Black', meta.playerColor === 'black' ? 'Player' : engineName);
   game.setHeader('Result', resultToken(meta.result));
 
+  // The standard SetUp/FEN pair, so a game that began from an edited board or an
+  // imported position reopens as that position rather than as move 1.
+  if (startFen !== DEFAULT_POSITION) {
+    game.setHeader('SetUp', '1');
+    game.setHeader('FEN', startFen);
+  }
+
   return game.pgn({ maxWidth: 80, newline: '\n' });
 }
 
 /** Outcome of parsing user-supplied PGN or FEN. */
 export type ImportResult =
-  | { ok: true; sanMoves: string[]; fen: string }
+  | { ok: true; sanMoves: string[]; fen: string; startFen: string }
   | { ok: false; error: string };
 
 /**
@@ -72,7 +82,12 @@ export function parsePgn(pgn: string): ImportResult {
     if (sanMoves.length === 0) {
       return { ok: false, error: 'That PGN contains no moves.' };
     }
-    return { ok: true, sanMoves, fen: game.fen() };
+
+    // A PGN may declare its own starting position with SetUp/FEN.
+    const declared = game.getHeaders().FEN;
+    const startFen = declared && validateFen(declared).ok ? declared : DEFAULT_POSITION;
+
+    return { ok: true, sanMoves, fen: game.fen(), startFen };
   } catch (error) {
     return {
       ok: false,

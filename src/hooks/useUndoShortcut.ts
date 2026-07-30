@@ -14,27 +14,38 @@ function isTextEntry(target: EventTarget | null): boolean {
 }
 
 /**
- * Binds ⌘Z / Ctrl+Z to taking back a move.
+ * Binds the takeback shortcuts: ⌘Z / Ctrl+Z to undo, ⇧⌘Z / Ctrl+Y to redo.
  *
- * Shift is excluded because ⇧⌘Z is redo by convention everywhere else, and
- * claiming it for a second undo would be surprising. The eligibility rules
- * themselves live in the store's `undoMove`, so the shortcut and the button
- * cannot drift apart.
+ * These are the bindings every other application uses, so they need no
+ * explaining. The eligibility rules live in the store's `undoMove` and
+ * `redoMove`, so the shortcuts and the buttons cannot drift apart.
  */
 export function useUndoShortcut(): void {
   const undoMove = useGameStore((state) => state.undoMove);
+  const redoMove = useGameStore((state) => state.redoMove);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
-      if (event.key.toLowerCase() !== 'z') return;
+      if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
       if (isTextEntry(event.target)) return;
 
-      event.preventDefault();
-      void undoMove();
+      const key = event.key.toLowerCase();
+
+      // ⇧⌘Z is the Apple convention for redo; Ctrl+Y is the Windows one. Both
+      // are accepted everywhere rather than sniffing the platform.
+      if ((key === 'z' && event.shiftKey) || (key === 'y' && !event.shiftKey)) {
+        event.preventDefault();
+        void redoMove();
+        return;
+      }
+
+      if (key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        void undoMove();
+      }
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [undoMove]);
+  }, [undoMove, redoMove]);
 }

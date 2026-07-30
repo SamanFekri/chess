@@ -1,4 +1,4 @@
-import { Chess } from 'chess.js';
+import { Chess, DEFAULT_POSITION, validateFen } from 'chess.js';
 import {
   DEFAULT_COACH_ELO,
   MAX_COACH_ELO,
@@ -8,6 +8,7 @@ import {
   UNLIMITED_ELO,
 } from '../engine/stockfish';
 import type { CoachFeedback, GameResult, PlayedMove, PlayerColor } from '../types';
+import type { RedoEntry } from './gameStore';
 
 /**
  * Saving and restoring the game in `localStorage`, so closing the tab does not
@@ -28,6 +29,8 @@ const GAME_VERSION = 1;
 export interface GameSnapshot {
   version: number;
   savedAt: number;
+  /** Position the game began from — not always the standard opening. */
+  startFen: string;
   sanMoves: string[];
   playerColor: PlayerColor;
   boardOrientation: PlayerColor;
@@ -39,6 +42,8 @@ export interface GameSnapshot {
   moves: PlayedMove[];
   feedback: CoachFeedback[];
   result: GameResult;
+  /** Moves taken back but still available to redo, in replay order. */
+  redoStack: RedoEntry[];
   /** Whether this game's result has already been counted towards the rating. */
   ratingApplied: boolean;
 }
@@ -72,9 +77,21 @@ export function loadGame(): RestoredGame | null {
     if (!Array.isArray(parsed.sanMoves) || parsed.sanMoves.some((m) => typeof m !== 'string')) {
       return null;
     }
-    if (parsed.sanMoves.length === 0) return null;
 
-    const game = new Chess();
+    // The starting position must be trustworthy before anything is replayed onto
+    // it. A game set up by hand or imported from a FEN does not begin at move 1,
+    // and replaying its moves from the standard opening would silently rebuild a
+    // different game.
+    const startFen =
+      typeof parsed.startFen === 'string' && validateFen(parsed.startFen).ok
+        ? parsed.startFen
+        : DEFAULT_POSITION;
+
+    // A game with no moves is still worth restoring when it started from a
+    // custom position — that setup is the thing the user built.
+    if (parsed.sanMoves.length === 0 && startFen === DEFAULT_POSITION) return null;
+
+    const game = new Chess(startFen);
     for (const san of parsed.sanMoves) {
       game.move(san);
     }
@@ -85,6 +102,7 @@ export function loadGame(): RestoredGame | null {
     const snapshot: GameSnapshot = {
       version: GAME_VERSION,
       savedAt: typeof parsed.savedAt === 'number' ? parsed.savedAt : Date.now(),
+      startFen,
       sanMoves: parsed.sanMoves,
       playerColor: parsed.playerColor === 'black' ? 'black' : 'white',
       boardOrientation: parsed.boardOrientation === 'black' ? 'black' : 'white',
@@ -102,6 +120,13 @@ export function loadGame(): RestoredGame | null {
         parsed.result && typeof parsed.result === 'object'
           ? (parsed.result as GameResult)
           : { status: 'in-progress' },
+      // The redo stack is only usable if every SAN in it is a string; a partly
+      // valid stack would desync from the board on the first redo.
+      redoStack:
+        Array.isArray(parsed.redoStack) &&
+        parsed.redoStack.every((entry) => entry && typeof entry.san === 'string')
+          ? parsed.redoStack
+          : [],
       ratingApplied: parsed.ratingApplied === true,
     };
 

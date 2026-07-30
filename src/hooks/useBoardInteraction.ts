@@ -44,6 +44,7 @@ export function useBoardInteraction(interactive: boolean) {
   const moves = useGameStore((state) => state.moves);
   const hint = useGameStore((state) => state.hint);
   const playerMove = useGameStore((state) => state.playerMove);
+  const requestPromotion = useGameStore((state) => state.requestPromotion);
 
   const [selected, setSelected] = useState<Square | null>(null);
 
@@ -59,10 +60,11 @@ export function useBoardInteraction(interactive: boolean) {
   }, [selected, fen]);
 
   /**
-   * Attempts a move, adding a queen promotion when the move needs one.
+   * Attempts a move, handing promotions to the chooser first.
    *
-   * Auto-promoting to a queen is right for the overwhelming majority of moves;
-   * a promotion dialog on a coaching board costs more than it gives.
+   * The move is not played until a piece is picked — under-promotion to a rook
+   * or knight is occasionally the only move that wins, and silently queening
+   * would take that away.
    */
   const attemptMove = useCallback(
     (from: string, to: string): boolean => {
@@ -72,9 +74,16 @@ export function useBoardInteraction(interactive: boolean) {
         .find((move) => move.to === to);
       if (!candidate) return false;
 
-      return playerMove(from, to, candidate.isPromotion() ? 'q' : undefined);
+      if (candidate.isPromotion()) {
+        requestPromotion(from as Square, to as Square);
+        // Reported as handled so the board does not snap the piece back; the
+        // chooser plays the move once a piece is picked.
+        return true;
+      }
+
+      return playerMove(from, to);
     },
-    [fen, playerMove],
+    [fen, playerMove, requestPromotion],
   );
 
   const onSquareClick = useCallback(

@@ -422,6 +422,18 @@ export function coachPlayerMove(input: PlayerMoveCoachingInput): CoachFeedback {
     }
   }
 
+  // A move that ends the game needs saying so, whatever else it did.
+  if (boardAfter.isCheckmate()) {
+    parts.push('That is checkmate — you won.');
+  } else {
+    const drawn = describeDrawnEnding(
+      boardAfter,
+      move.color,
+      scoreWinPercent(classification.scoreBefore) >= 65,
+    );
+    if (drawn) parts.push(drawn);
+  }
+
   // What the player should now watch for.
   const loose = findLoosePieces(boardAfter, move.color);
   for (const piece of loose.slice(0, 2)) {
@@ -476,9 +488,14 @@ export function coachEngineMove(input: EngineMoveCoachingInput): CoachFeedback {
   );
 
   if (boardAfter.isCheckmate()) {
-    parts.push('That is checkmate.');
+    parts.push('That is checkmate — you lost this one.');
   } else if (boardAfter.isCheck()) {
     parts.push('You must deal with the check before anything else.');
+  } else {
+    // The engine only accepts a draw when it is not winning, so from the
+    // player's side a stalemate here is a save rather than a squandered win.
+    const drawn = describeDrawnEnding(boardAfter, move.color, false);
+    if (drawn) parts.push(drawn);
   }
 
   // What the player now needs to watch out for.
@@ -778,6 +795,43 @@ function describePawns(structure: ReturnType<typeof pawnStructure>): string {
   }
   if (notes.length === 0) notes.push('Your pawn structure is sound with no weaknesses to defend.');
   return notes.join(' ');
+}
+
+/**
+ * The teaching point when a move ends the game in a draw.
+ *
+ * Stalemate is the one every learner runs into: a winning position thrown away
+ * by taking every square from a king that was never in check. Saying "draw by
+ * stalemate" without saying *why* teaches nothing, so the wording depends on who
+ * it helped.
+ *
+ * @param board       Position after the move.
+ * @param mover       Side that just moved.
+ * @param moverWasWinning Whether the mover stood better beforehand.
+ */
+export function describeDrawnEnding(
+  board: Chess,
+  mover: Color,
+  moverWasWinning: boolean,
+): string | null {
+  if (board.isStalemate()) {
+    const victim = colorName(opposite(mover));
+    if (moverWasWinning) {
+      return `That is stalemate — ${victim} has no legal move and is not in check, so the game is a draw instead of a win. When you are winning, always leave the enemy king one square, or give check.`;
+    }
+    return `That is stalemate — ${victim} has no legal move and is not in check, so the game is a draw. A useful escape when you are worse.`;
+  }
+
+  if (board.isInsufficientMaterial()) {
+    return 'That is a draw — neither side has enough material left to force checkmate.';
+  }
+  if (board.isThreefoldRepetition()) {
+    return 'That is a draw by repetition — the same position has now appeared three times.';
+  }
+  if (board.isDrawByFiftyMoves()) {
+    return 'That is a draw — fifty moves have passed with no capture and no pawn move.';
+  }
+  return null;
 }
 
 /** Describes how the game ended, in plain English. */

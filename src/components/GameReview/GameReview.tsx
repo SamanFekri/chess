@@ -81,6 +81,7 @@ export const GameReview = memo(function GameReview() {
   const sanHistory = useGameStore((state) => state.sanHistory);
   const playerColor = useGameStore((state) => state.playerColor);
   const opponentElo = useGameStore((state) => state.opponentElo);
+  const startFen = useGameStore((state) => state.startFen);
   const rating = useGameStore((state) => state.rating);
 
   if (!review) return null;
@@ -206,7 +207,7 @@ export const GameReview = memo(function GameReview() {
             onClick={() =>
               downloadText(
                 'ai-chess-coach.pgn',
-                buildPgn(sanHistory, { playerColor, opponentElo, result }),
+                buildPgn(sanHistory, { playerColor, opponentElo, result, startFen }),
               )
             }
             className="flex-1 basis-40"

@@ -1,4 +1,4 @@
-import { Chess } from 'chess.js';
+import { Chess, DEFAULT_POSITION } from 'chess.js';
 import type { Color, Move, PieceSymbol, Square } from 'chess.js';
 import { create } from 'zustand';
 import { classifyMove, buildReview } from '../engine/analysis';
@@ -75,6 +75,13 @@ function coachDepth(state: { coachElo: number }): number {
   return coachDepthForElo(state.coachElo);
 }
 
+/** One taken-back ply, with everything the coach had said about it. */
+export interface RedoEntry {
+  san: string;
+  move: PlayedMove | null;
+  feedback: CoachFeedback[];
+}
+
 /** Shape of the game store. */
 interface GameStore {
   // ── Configuration ────────────────────────────────────────────────────────
@@ -91,6 +98,15 @@ interface GameStore {
   coachEnabled: boolean;
 
   // ── Position ─────────────────────────────────────────────────────────────
+  /**
+   * The position this game began from.
+   *
+   * Not always the standard opening: a game can start from an edited board or an
+   * imported FEN. Everything that rebuilds the board by replaying moves — undo,
+   * restoring from storage, exporting PGN — has to start here, or it silently
+   * reconstructs a different game.
+   */
+  startFen: string;
   fen: string;
   sanHistory: string[];
   moves: PlayedMove[];
@@ -113,6 +129,15 @@ interface GameStore {
   isHintLoading: boolean;
   review: GameReview | null;
 
+  /**
+   * A pawn move waiting for the player to choose what it promotes to.
+   *
+   * The move is held rather than played: auto-queening is right most of the time
+   * but silently wrong in the endgames where a rook or knight is the only move
+   * that wins, and those are exactly the positions worth learning from.
+   */
+  pendingPromotion: { from: Square; to: Square } | null;
+
   // ── Position editor ──────────────────────────────────────────────────────
   /** True while the board is being set up by hand rather than played. */
   editMode: boolean;
@@ -120,6 +145,23 @@ interface GameStore {
   editFen: string;
   /** Piece the next board tap places, or `erase` to clear a square. */
   editSelection: { type: PieceSymbol; color: Color } | 'erase';
+  /**
+   * Side the player will take when the edited position starts.
+   *
+   * Independent of who moves first: setting up a position where the opponent
+   * moves and you have to find the answer is a normal thing to want.
+   */
+  editPlayerColor: PlayerColor;
+
+  /**
+   * Moves taken back, in the order they would be replayed.
+   *
+   * Undo rebuilds the board from the move list, so the verdicts and coaching for
+   * a taken-back move would otherwise be gone for good. Parking them here means
+   * redo restores the position *and* everything the coach said about it, without
+   * re-running the engine.
+   */
+  redoStack: RedoEntry[];
 
   // ── Rating ───────────────────────────────────────────────────────────────
   /** Persisted Elo estimate for the player. */
@@ -131,7 +173,15 @@ interface GameStore {
   bootEngine: () => Promise<void>;
   newGame: (options?: { playerColor?: PlayerColor; opponentElo?: number }) => Promise<void>;
   playerMove: (from: string, to: string, promotion?: string) => boolean;
+  /** Opens the promotion chooser for a pawn move that needs one. */
+  requestPromotion: (from: Square, to: Square) => void;
+  /** Plays the held promotion with the chosen piece, or cancels with null. */
+  resolvePromotion: (piece: PieceSymbol | null) => void;
   undoMove: () => Promise<void>;
+  /** Replays the most recently taken-back move. */
+  redoMove: () => Promise<void>;
+  /** True when there is anything to redo. */
+  canRedo: () => boolean;
   resign: () => void;
   /** Swaps which side you play; the board follows so your colour is at the bottom. */
   flipBoard: () => Promise<void>;
@@ -150,8 +200,12 @@ interface GameStore {
   setEditSelection: (selection: { type: PieceSymbol; color: Color } | 'erase') => void;
   /** Applies the current editor selection to a square. */
   editSquare: (square: Square) => void;
+  /** Drags a piece to another square, or off the board (`to` null) to remove it. */
+  moveEditPiece: (from: Square, to: Square | null) => void;
   /** Chooses which side moves first from the edited position. */
   setEditTurn: (color: Color) => void;
+  /** Chooses which side the player takes when the edited position starts. */
+  setEditPlayerColor: (color: PlayerColor) => void;
   /** Empties the board, or restores the standard starting position. */
   resetEditBoard: (to: 'empty' | 'start') => void;
   /** Validates the edited position and starts a game from it. */
@@ -496,6 +550,54 @@ export const useGameStore = create<GameStore>((set, get) => {
     }
   };
 
+  /**
+   * Rebuilds the board from the first `keep` moves of the current game.
+   *
+   * Unlike a full reset this preserves the verdicts and coaching for the moves
+   * that survive — taking one move back should not erase what the coach said
+   * about the twenty before it.
+   */
+  const rebuildTo = async (keep: number) => {
+    generation += 1;
+    const token = generation;
+    getEngine().stop();
+
+    const history = game.history();
+    const rebuilt = new Chess(get().startFen);
+    for (const san of history.slice(0, keep)) {
+      try {
+        rebuilt.move(san);
+      } catch {
+        break;
+      }
+    }
+    game = rebuilt;
+
+    set((state) => ({
+      fen: game.fen(),
+      sanHistory: game.history(),
+      moves: state.moves.filter((move) => move.ply < keep),
+      feedback: state.feedback.filter((entry) => entry.ply < keep),
+      result: resultFromBoard(game),
+      viewingPly: null,
+      analysis: null,
+      hint: null,
+      isHintLoading: false,
+      review: null,
+      pendingPromotion: null,
+      isOpponentThinking: false,
+      isCoachThinking: false,
+      engineStatus: 'loading',
+      engineError: null,
+      // Rewinding past the end un-finishes the game, so its result must be able
+      // to count again if it is replayed to a conclusion.
+      ratingApplied: false,
+    }));
+
+    refreshBriefing();
+    await startPosition(token);
+  };
+
   /** Analyses the opening position and lets the engine start if it is White. */
   const startPosition = async (token: number) => {
     try {
@@ -528,7 +630,7 @@ export const useGameStore = create<GameStore>((set, get) => {
   const resetTo = async (
     setup: () => void,
     overrides: Partial<
-      Pick<GameStore, 'playerColor' | 'opponentElo' | 'boardOrientation'>
+      Pick<GameStore, 'playerColor' | 'opponentElo' | 'boardOrientation' | 'startFen'>
     > = {},
   ) => {
     generation += 1;
@@ -538,6 +640,8 @@ export const useGameStore = create<GameStore>((set, get) => {
     setup();
 
     set({
+      // Defaults to the standard opening unless the caller says otherwise.
+      startFen: DEFAULT_POSITION,
       ...overrides,
       fen: game.fen(),
       sanHistory: game.history(),
@@ -554,6 +658,8 @@ export const useGameStore = create<GameStore>((set, get) => {
       isCoachThinking: false,
       engineStatus: 'loading',
       engineError: null,
+      pendingPromotion: null,
+      redoStack: [],
       // A new board is a new game as far as the rating is concerned.
       ratingApplied: false,
     });
@@ -569,6 +675,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     boardOrientation: restored?.snapshot.boardOrientation ?? 'white',
     coachEnabled: restored?.snapshot.coachEnabled ?? true,
 
+    startFen: restored?.snapshot.startFen ?? DEFAULT_POSITION,
     fen: game.fen(),
     sanHistory: game.history(),
     moves: restored?.snapshot.moves ?? [],
@@ -588,9 +695,13 @@ export const useGameStore = create<GameStore>((set, get) => {
     // A finished game's review is rebuilt on demand rather than stored.
     review: null,
 
+    pendingPromotion: null,
+    redoStack: restored?.snapshot.redoStack ?? [],
+
     editMode: false,
     editFen: new Chess().fen(),
     editSelection: { type: 'q', color: 'w' },
+    editPlayerColor: 'white',
 
     rating: loadRating(),
     ratingApplied: restored?.snapshot.ratingApplied ?? false,
@@ -635,6 +746,10 @@ export const useGameStore = create<GameStore>((set, get) => {
       syncPosition();
       set({
         hint: null,
+        pendingPromotion: null,
+        // Playing on abandons the taken-back branch, exactly as a text editor
+        // drops its redo history once you type something new.
+        redoStack: [],
         moves: [
           ...state.moves,
           {
@@ -670,17 +785,83 @@ export const useGameStore = create<GameStore>((set, get) => {
       const alreadyPlayerTurn = history.length % 2 === parity;
       const keep = Math.max(0, history.length - (alreadyPlayerTurn ? 2 : 1));
 
-      await resetTo(() => {
-        const rebuilt = new Chess();
-        for (const san of history.slice(0, keep)) {
-          try {
-            rebuilt.move(san);
-          } catch {
-            break;
-          }
-        }
-        game = rebuilt;
+      // Capture what is about to be removed so redo can put it back verbatim.
+      const undone: RedoEntry[] = history.slice(keep).map((san, index) => {
+        const ply = keep + index;
+        return {
+          san,
+          move: state.moves.find((entry) => entry.ply === ply) ?? null,
+          feedback: state.feedback.filter((entry) => entry.ply === ply),
+        };
       });
+
+      await rebuildTo(keep);
+      set((current) => ({ redoStack: [...undone, ...current.redoStack] }));
+    },
+
+    async redoMove() {
+      const state = get();
+      if (state.redoStack.length === 0 || state.isOpponentThinking) return;
+
+      generation += 1;
+      const token = generation;
+      getEngine().stop();
+
+      // Replay whole plies until it is the player's turn again, mirroring how
+      // undo takes them back, so undo and redo are exact inverses.
+      const restoredMoves: PlayedMove[] = [];
+      const restoredFeedback: CoachFeedback[] = [];
+      const remaining = [...state.redoStack];
+
+      while (remaining.length > 0) {
+        const next = remaining[0];
+        try {
+          game.move(next.san);
+        } catch {
+          // The stack no longer matches the board; drop it rather than guess.
+          remaining.length = 0;
+          break;
+        }
+        remaining.shift();
+        if (next.move) restoredMoves.push(next.move);
+        restoredFeedback.push(...next.feedback);
+        if (game.turn() === playerCode(state.playerColor)) break;
+      }
+
+      set((current) => ({
+        fen: game.fen(),
+        sanHistory: game.history(),
+        moves: [...current.moves, ...restoredMoves],
+        feedback: [...current.feedback, ...restoredFeedback],
+        result: resultFromBoard(game),
+        redoStack: remaining,
+        viewingPly: null,
+        analysis: null,
+        hint: null,
+        pendingPromotion: null,
+        engineStatus: 'loading',
+      }));
+
+      if (finishIfOver()) {
+        refreshBriefing();
+        return;
+      }
+      await startPosition(token);
+    },
+
+    canRedo() {
+      return get().redoStack.length > 0;
+    },
+
+    requestPromotion(from, to) {
+      set({ pendingPromotion: { from, to } });
+    },
+
+    resolvePromotion(piece) {
+      const pending = get().pendingPromotion;
+      set({ pendingPromotion: null });
+      if (!pending || !piece) return;
+      get().playerMove(pending.from, pending.to, piece);
     },
 
     resign() {
@@ -787,6 +968,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         editMode: true,
         editFen: game.fen(),
         editSelection: { type: 'q', color: 'w' },
+        editPlayerColor: get().playerColor,
         hint: null,
         review: null,
       });
@@ -800,6 +982,19 @@ export const useGameStore = create<GameStore>((set, get) => {
       set({ editSelection: selection });
     },
 
+    moveEditPiece(from, to) {
+      const board = new Chess(get().editFen, { skipValidation: true });
+      const piece = board.get(from);
+      if (!piece) return;
+
+      board.remove(from);
+      // A null target means the piece was dragged off the board, which is the
+      // quickest way to delete one.
+      if (to) board.put(piece, to);
+
+      set({ editFen: board.fen() });
+    },
+
     editSquare(square) {
       const { editFen, editSelection } = get();
       // `skipValidation` is essential: half-built positions are routinely
@@ -811,6 +1006,10 @@ export const useGameStore = create<GameStore>((set, get) => {
       else board.put({ type: editSelection.type, color: editSelection.color }, square);
 
       set({ editFen: board.fen() });
+    },
+
+    setEditPlayerColor(color) {
+      set({ editPlayerColor: color });
     },
 
     setEditTurn(color) {
@@ -859,13 +1058,14 @@ export const useGameStore = create<GameStore>((set, get) => {
 
       set({ editMode: false });
 
-      // Whoever moves first becomes the human's side, matching FEN import.
-      const turn: PlayerColor = probe.turn() === 'b' ? 'black' : 'white';
+      // The side chosen in the editor, which need not be the side to move: the
+      // engine simply moves first if the position starts on its turn.
+      const mine = get().editPlayerColor;
       await resetTo(
         () => {
           game = new Chess(parsed.fen);
         },
-        { playerColor: turn, boardOrientation: turn },
+        { playerColor: mine, boardOrientation: mine, startFen: parsed.fen },
       );
       return null;
     },
@@ -894,17 +1094,20 @@ export const useGameStore = create<GameStore>((set, get) => {
       const parsed = parsePgn(pgn);
       if (!parsed.ok) return parsed.error;
 
-      await resetTo(() => {
-        const rebuilt = new Chess();
-        for (const san of parsed.sanMoves) {
-          try {
-            rebuilt.move(san);
-          } catch {
-            break;
+      await resetTo(
+        () => {
+          const rebuilt = new Chess(parsed.startFen);
+          for (const san of parsed.sanMoves) {
+            try {
+              rebuilt.move(san);
+            } catch {
+              break;
+            }
           }
-        }
-        game = rebuilt;
-      });
+          game = rebuilt;
+        },
+        { startFen: parsed.startFen },
+      );
       return null;
     },
 
@@ -920,7 +1123,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         () => {
           game = new Chess(parsed.fen);
         },
-        { playerColor: turn, boardOrientation: turn },
+        { playerColor: turn, boardOrientation: turn, startFen: parsed.fen },
       );
       return null;
     },
@@ -947,10 +1150,12 @@ export function getBoard(): Chess {
 function persistenceKey(state: GameStore): string {
   const graded = state.moves.reduce((count, move) => count + (move.quality ? 1 : 0), 0);
   return [
+    state.startFen,
     state.sanHistory.length,
     graded,
     state.feedback.length,
     state.result.status,
+    state.redoStack.length,
     state.playerColor,
     state.boardOrientation,
     state.opponentElo,
@@ -967,14 +1172,17 @@ useGameStore.subscribe((state) => {
   if (key === lastPersistenceKey) return;
   lastPersistenceKey = key;
 
-  // An empty board is not worth restoring, and leaving the previous game in
-  // storage would resurrect it on the next reload.
-  if (state.sanHistory.length === 0) {
+  // A fresh standard game is not worth restoring, and leaving the previous game
+  // in storage would resurrect it on the next reload. A custom starting position
+  // is worth keeping even before a move is played — it is the thing the user
+  // just built in the editor.
+  if (state.sanHistory.length === 0 && state.startFen === DEFAULT_POSITION) {
     clearGame();
     return;
   }
 
   saveGame({
+    startFen: state.startFen,
     sanMoves: state.sanHistory,
     playerColor: state.playerColor,
     boardOrientation: state.boardOrientation,
@@ -984,6 +1192,7 @@ useGameStore.subscribe((state) => {
     moves: state.moves,
     feedback: state.feedback,
     result: state.result,
+    redoStack: state.redoStack,
     ratingApplied: state.ratingApplied,
   });
 });

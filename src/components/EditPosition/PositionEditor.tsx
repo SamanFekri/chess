@@ -4,6 +4,7 @@ import { useGameStore } from '../../store/gameStore';
 import { PIECE_NAME } from '../../utils/chess';
 import { Button } from '../ui/Button';
 import { Panel } from '../ui/Panel';
+import { TrashIcon } from '../ui/icons';
 
 /** Unicode glyph for each piece, by colour. */
 const GLYPH: Record<Color, Record<PieceSymbol, string>> = {
@@ -44,6 +45,44 @@ function PaletteButton({
   );
 }
 
+/** A labelled pair of side buttons, shared by both colour choices. */
+function SideChoice<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: Array<{ value: T; label: string }>;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div>
+      <p className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-slate-500">
+        {label}
+      </p>
+      <div className="mt-1 grid grid-cols-2 gap-2" role="group" aria-label={label}>
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
+            aria-pressed={value === option.value}
+            className={`min-h-11 rounded-xl text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 ${
+              value === option.value
+                ? 'bg-blue-500 text-white'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Position editor: pick a piece, tap squares to place it, then start playing.
  *
@@ -56,6 +95,8 @@ export const PositionEditor = memo(function PositionEditor() {
   const editSelection = useGameStore((state) => state.editSelection);
   const setEditSelection = useGameStore((state) => state.setEditSelection);
   const setEditTurn = useGameStore((state) => state.setEditTurn);
+  const editPlayerColor = useGameStore((state) => state.editPlayerColor);
+  const setEditPlayerColor = useGameStore((state) => state.setEditPlayerColor);
   const resetEditBoard = useGameStore((state) => state.resetEditBoard);
   const startFromEditPosition = useGameStore((state) => state.startFromEditPosition);
   const cancelEditMode = useGameStore((state) => state.cancelEditMode);
@@ -109,7 +150,7 @@ export const PositionEditor = memo(function PositionEditor() {
           onClick={() => setEditSelection('erase')}
           aria-pressed={editSelection === 'erase'}
         >
-          ⌫ Eraser
+          <TrashIcon /> Eraser
         </Button>
         <Button variant="ghost" onClick={() => resetEditBoard('empty')}>
           Clear
@@ -119,31 +160,33 @@ export const PositionEditor = memo(function PositionEditor() {
         </Button>
       </div>
 
-      <div>
-        <p className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-slate-500">
-          Who moves first
-        </p>
-        <div className="mt-1 grid grid-cols-2 gap-2" role="group" aria-label="Side to move">
-          {(['w', 'b'] as Color[]).map((color) => (
-            <button
-              key={color}
-              type="button"
-              onClick={() => setEditTurn(color)}
-              aria-pressed={turn === color}
-              className={`min-h-11 rounded-xl text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 ${
-                turn === color
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }`}
-            >
-              {color === 'w' ? '♔ White' : '♚ Black'}
-            </button>
-          ))}
-        </div>
-        <p className="mt-1 text-xs text-slate-500">
-          You play whichever side moves first, as with an imported FEN.
-        </p>
-      </div>
+      <SideChoice
+        label="Who moves first"
+        value={turn}
+        onChange={setEditTurn}
+        options={[
+          { value: 'w', label: '♔ White' },
+          { value: 'b', label: '♚ Black' },
+        ]}
+      />
+
+      <SideChoice
+        label="You play"
+        value={editPlayerColor}
+        onChange={setEditPlayerColor}
+        options={[
+          { value: 'white', label: '♔ White' },
+          { value: 'black', label: '♚ Black' },
+        ]}
+      />
+
+      <p className="text-xs leading-relaxed text-slate-500">
+        {editPlayerColor.charAt(0).toUpperCase() + editPlayerColor.slice(1)} at the bottom of the
+        board.{' '}
+        {(turn === 'w') === (editPlayerColor === 'white')
+          ? 'You move first.'
+          : 'The engine moves first — useful for practising a defence.'}
+      </p>
 
       {error && (
         <p role="alert" className="text-xs leading-relaxed text-red-300">
