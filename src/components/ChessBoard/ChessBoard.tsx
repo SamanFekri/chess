@@ -75,7 +75,7 @@ export const ChessBoard = memo(function ChessBoard() {
     !isOpponentThinking &&
     turn === playerColor;
 
-  const { onSquareClick, onPieceDrop, onPieceDrag, squareStyles } =
+  const { onSquareClick, onPieceDrop, onPieceDrag, squareStyles, dangerNote } =
     useBoardInteraction(interactive);
 
   /** Arrow pointing out the best move whenever a hint is active. */
@@ -148,6 +148,21 @@ export const ChessBoard = memo(function ChessBoard() {
         <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-2">
           <span className="rounded-full bg-slate-950/85 px-3 py-1 text-center text-xs font-medium text-blue-200 ring-1 ring-blue-400/40">
             Edit mode — tap to place, drag to move, drag off the board to remove
+          </span>
+        </div>
+      )}
+
+      {/* The second kind of danger needs a sentence: a crosshair on the far side
+          of the board cannot say "because that is your only defender". Shares the
+          top strip with the pills below, which are never up at the same time —
+          both require the board to be non-interactive. */}
+      {dangerNote && (
+        <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-2">
+          <span
+            className="rounded-full bg-slate-950/85 px-3 py-1 text-center text-xs font-medium text-violet-200 ring-1 ring-violet-400/50"
+            aria-live="polite"
+          >
+            {dangerNote}
           </span>
         </div>
       )}

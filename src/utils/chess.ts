@@ -222,6 +222,21 @@ export function findLoosePieces(chess: Chess, color: Color): HangingPiece[] {
     .sort((a, b) => b.value - a.value);
 }
 
+/**
+ * Material the opponent wins on each square of `color`, in centipawns.
+ *
+ * The same static exchange rule as {@link pieceAtRisk}: an undefended piece
+ * costs its full value, a defended one costs the difference against its
+ * cheapest attacker.
+ */
+function riskBySquare(chess: Chess, color: Color): Map<Square, number> {
+  const map = new Map<Square, number>();
+  for (const risk of findLoosePieces(chess, color)) {
+    map.set(risk.square, risk.undefended ? risk.value : risk.value - (risk.cheapestAttacker ?? 0));
+  }
+  return map;
+}
+
 /** Cheapest capture of `square` available to `color`, or null. */
 function cheapestCaptureOf(chess: Chess, square: Square, color: Color): Move | null {
   if (chess.turn() !== color) return null;
@@ -235,36 +250,104 @@ function cheapestCaptureOf(chess: Chess, square: Square, color: Color): Move | n
 }
 
 /**
+ * Why a destination square is dangerous.
+ *
+ * Two different mistakes, which is why they are drawn differently on the board:
+ * `moved-piece` is "they can take the thing you just moved", `exposed-piece` is
+ * "they can take something else, because moving stopped defending it or opened
+ * a line to it". The second is the one beginners never see coming.
+ */
+export type DangerKind = 'moved-piece' | 'exposed-piece';
+
+/** A destination square that loses material, and what it loses. */
+export interface DangerWarning {
+  /** The destination this warning is attached to. */
+  square: Square;
+  kind: DangerKind;
+  /** Where the piece that would be lost stands after the move. */
+  victim: Square;
+  victimType: PieceSymbol;
+  /** Material lost in centipawns, after the best exchange. */
+  loss: number;
+}
+
+/**
+ * The worst piece left hanging *elsewhere* by a move — removed defenders and
+ * discovered attacks.
+ *
+ * Only risk the move actually created counts: a piece that was already loose
+ * before is not this move's fault, and blaming every move for it would make the
+ * board a wall of warnings.
+ *
+ * @param swing Material the move itself won, which the loss has to beat before
+ *   the move is worth calling dangerous.
+ */
+function worstExposure(
+  after: Chess,
+  mover: Color,
+  target: Square,
+  riskBefore: Map<Square, number>,
+  swing: number,
+): Omit<DangerWarning, 'square'> | null {
+  // Giving check does not hand the opponent a free move elsewhere — they have to
+  // answer it first — so a static read of the position would cry wolf here.
+  if (after.inCheck()) return null;
+
+  let worst: Omit<DangerWarning, 'square'> | null = null;
+
+  for (const [square, gain] of riskBySquare(after, mover)) {
+    // The piece that moved is the other kind of warning, handled separately.
+    if (square === target) continue;
+    if (gain <= (riskBefore.get(square) ?? 0)) continue;
+
+    const loss = gain - swing;
+    if (loss <= 0) continue;
+
+    if (!worst || loss > worst.loss) {
+      worst = { kind: 'exposed-piece', victim: square, victimType: after.get(square)!.type, loss };
+    }
+  }
+
+  return worst;
+}
+
+/**
  * For each square the piece on `from` could move to, whether moving there would
- * actually lose material.
+ * actually lose material — and which piece it would cost.
  *
- * Each candidate is played on a throwaway board, then the cheapest enemy capture
- * of that square and the cheapest recapture are played on top — a short static
- * exchange. The comparison is against the material balance *before* the move,
- * which is what stops winning captures being painted as dangerous: taking a
- * defended queen with a knight leaves the knight capturable, but the exchange is
- * still winning, and flagging it red would teach exactly the wrong lesson.
+ * Each candidate is played on a throwaway board and then read two ways. First
+ * the piece that moved: the cheapest enemy capture of that square and the
+ * cheapest recapture are played on top, a short static exchange. Then everything
+ * else, via {@link worstExposure}, which is what catches moving the knight that
+ * was the only defender of your rook.
  *
- * Only the cheapest capture and recapture are considered rather than a full
- * search, which keeps a click on a piece to a handful of board clones.
+ * Both comparisons are against the material balance *before* the move, which is
+ * what stops winning captures being painted as dangerous: taking a defended
+ * queen with a knight leaves the knight capturable, but the exchange is still
+ * winning, and flagging it would teach exactly the wrong lesson.
+ *
+ * Only cheapest captures are considered rather than a full search, which keeps a
+ * click on a piece to a handful of board clones.
  *
  * @returns Destination squares that lose material, keyed by square.
  */
-export function riskyDestinations(chess: Chess, from: Square): Map<Square, HangingPiece> {
-  const risky = new Map<Square, HangingPiece>();
+export function riskyDestinations(chess: Chess, from: Square): Map<Square, DangerWarning> {
+  const warnings = new Map<Square, DangerWarning>();
   const fen = chess.fen();
-  const mover = chess.get(from)?.color;
-  if (!mover) return risky;
+  const piece = chess.get(from);
+  if (!piece) return warnings;
 
+  const mover = piece.color;
   const enemy = opposite(mover);
   const baseline = materialBalance(chess, mover);
+  const riskBefore = riskBySquare(chess, mover);
 
   for (const move of chess.moves({ square: from, verbose: true })) {
     const target = move.to as Square;
 
-    const probe = new Chess(fen);
+    const after = new Chess(fen);
     try {
-      probe.move({
+      after.move({
         from: move.from,
         to: move.to,
         ...(move.promotion ? { promotion: move.promotion } : {}),
@@ -273,40 +356,54 @@ export function riskyDestinations(chess: Chess, from: Square): Map<Square, Hangi
       continue;
     }
 
+    // What the move itself wins: a capture, or the extra material of a promotion.
+    const swing = materialBalance(after, mover) - baseline;
+    let worst: DangerWarning | null = null;
+
+    const probe = new Chess(after.fen());
     // Nothing can take it: safe, whatever it is standing next to.
     const capture = cheapestCaptureOf(probe, target, enemy);
-    if (!capture) continue;
-
-    probe.move({
-      from: capture.from,
-      to: capture.to,
-      ...(capture.promotion ? { promotion: capture.promotion } : {}),
-    });
-
-    // Take back if that helps — a defended piece is only lost for real when the
-    // recapture still leaves you down.
-    const recapture = cheapestCaptureOf(probe, target, mover);
-    if (recapture) {
+    if (capture) {
       probe.move({
-        from: recapture.from,
-        to: recapture.to,
-        ...(recapture.promotion ? { promotion: recapture.promotion } : {}),
+        from: capture.from,
+        to: capture.to,
+        ...(capture.promotion ? { promotion: capture.promotion } : {}),
       });
+
+      // Take back if that helps — a defended piece is only lost for real when
+      // the recapture still leaves you down.
+      const recapture = cheapestCaptureOf(probe, target, mover);
+      if (recapture) {
+        probe.move({
+          from: recapture.from,
+          to: recapture.to,
+          ...(recapture.promotion ? { promotion: recapture.promotion } : {}),
+        });
+      }
+
+      const loss = baseline - materialBalance(probe, mover);
+      if (loss > 0) {
+        worst = {
+          square: target,
+          kind: 'moved-piece',
+          victim: target,
+          victimType: move.promotion ?? piece.type,
+          loss,
+        };
+      }
     }
 
-    if (materialBalance(probe, mover) >= baseline) continue;
+    // The bigger of the two losses wins the square: if moving here drops a rook
+    // as well as the knight, the rook is the reason to look somewhere else.
+    const exposure = worstExposure(after, mover, target, riskBefore, swing);
+    if (exposure && (!worst || exposure.loss > worst.loss)) {
+      worst = { square: target, ...exposure };
+    }
 
-    const piece = chess.get(from)!;
-    risky.set(target, {
-      square: target,
-      type: move.promotion ?? piece.type,
-      value: PIECE_VALUE[move.promotion ?? piece.type],
-      undefended: !recapture,
-      cheapestAttacker: PIECE_VALUE[capture.piece],
-    });
+    if (worst) warnings.set(target, worst);
   }
 
-  return risky;
+  return warnings;
 }
 
 /** How many of the four central squares a side attacks or occupies. */

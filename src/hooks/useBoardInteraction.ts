@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Chess } from 'chess.js';
 import type { Square } from 'chess.js';
-import { riskyDestinations, type HangingPiece } from '../utils/chess';
+import { PIECE_NAME, riskyDestinations, type DangerWarning } from '../utils/chess';
 import { useGameStore } from '../store/gameStore';
 
 /** Squares highlighted on the board, keyed by square name. */
@@ -34,6 +34,20 @@ const WARNING_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
 </svg>`;
 
 /**
+ * Crosshair drawn on squares that would leave a *different* piece capturable.
+ *
+ * A second shape rather than a second shade of the same warning: the two
+ * dangers ask for different things — one says "this piece can be taken here",
+ * the other says "look somewhere else on the board" — and a distinct icon
+ * survives being small, being on either square colour, and colour blindness.
+ */
+const EXPOSURE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <circle cx="12" cy="12" r="8.2" fill="#c4b5fd" stroke="#4c1d95" stroke-width="1.7"/>
+  <path d="M12 1.6v5.2M12 17.2v5.2M1.6 12h5.2M17.2 12h5.2" stroke="#4c1d95" stroke-width="2.3" stroke-linecap="round"/>
+  <circle cx="12" cy="12" r="2.7" fill="#4c1d95"/>
+</svg>`;
+
+/**
  * A legal destination where the piece could be captured — danger mode.
  *
  * Amber rather than red: red is already the check highlight and the capture
@@ -47,6 +61,29 @@ const DANGER_TARGET_STYLE: React.CSSProperties = {
   backgroundPosition: 'center',
   backgroundSize: '42%',
   boxShadow: 'inset 0 0 0 3px rgba(245, 158, 11, 0.9)',
+};
+
+/** A destination that costs you a piece somewhere else on the board. */
+const EXPOSURE_TARGET_STYLE: React.CSSProperties = {
+  backgroundColor: 'rgba(139, 92, 246, 0.3)',
+  backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(EXPOSURE_SVG)}")`,
+  backgroundRepeat: 'no-repeat',
+  backgroundPosition: 'center',
+  backgroundSize: '42%',
+  boxShadow: 'inset 0 0 0 3px rgba(139, 92, 246, 0.9)',
+};
+
+/**
+ * The piece that would be lost, marked in the same violet as the destinations
+ * that would lose it.
+ *
+ * Dashed and without an icon, so the piece underneath stays readable and the
+ * square is never mistaken for somewhere you can move.
+ */
+const EXPOSED_PIECE_STYLE: React.CSSProperties = {
+  backgroundColor: 'rgba(139, 92, 246, 0.22)',
+  outline: '3px dashed rgba(167, 139, 250, 0.95)',
+  outlineOffset: '-3px',
 };
 
 const LAST_MOVE_STYLE: React.CSSProperties = {
@@ -161,10 +198,46 @@ export function useBoardInteraction(interactive: boolean) {
    */
   const dangerTargets = useMemo(() => {
     if (!interactive || !selected || !coachEnabled || !dangerMode) {
-      return new Map<Square, HangingPiece>();
+      return new Map<Square, DangerWarning>();
     }
     return riskyDestinations(new Chess(fen), selected);
   }, [interactive, selected, coachEnabled, dangerMode, fen]);
+
+  /**
+   * The pieces those destinations would leave hanging.
+   *
+   * Marking the victim as well as the destination is what makes the second kind
+   * of danger legible: the crosshair says "not here", and the dashed square says
+   * why. Kept as one set across every risky destination, since it is nearly
+   * always the same piece being abandoned.
+   */
+  const exposedPieces = useMemo(() => {
+    const squares = new Map<Square, DangerWarning>();
+    for (const warning of dangerTargets.values()) {
+      if (warning.kind !== 'exposed-piece') continue;
+      const worst = squares.get(warning.victim);
+      if (!worst || warning.loss > worst.loss) squares.set(warning.victim, warning);
+    }
+    return squares;
+  }, [dangerTargets]);
+
+  /**
+   * The same warning in words, for the note above the board.
+   *
+   * Only the exposure danger gets a sentence: a warning triangle on the square
+   * you were about to move to explains itself, while "moving here loses your
+   * rook on h1" is not deducible from a marker on the other side of the board.
+   */
+  const dangerNote = useMemo(() => {
+    if (exposedPieces.size === 0) return null;
+
+    const names = [...exposedPieces.values()]
+      .sort((a, b) => b.loss - a.loss)
+      .slice(0, 2)
+      .map((warning) => `${PIECE_NAME[warning.victimType]} on ${warning.victim}`);
+
+    return `Careful — the crossed squares leave your ${names.join(' and ')} there for the taking.`;
+  }, [exposedPieces]);
 
   /** Highlights: last move, check, selection, legal targets and any hint. */
   const squareStyles = useMemo<SquareStyles>(() => {
@@ -191,10 +264,21 @@ export function useBoardInteraction(interactive: boolean) {
 
     if (selected) {
       styles[selected] = { ...styles[selected], ...SELECTED_STYLE };
+
+      // Marked before the destinations so a piece that happens to sit on one
+      // cannot overwrite the square you are being warned about.
+      for (const square of exposedPieces.keys()) {
+        styles[square] = { ...styles[square], ...EXPOSED_PIECE_STYLE };
+      }
+
       for (const [target, isCapture] of legalTargets) {
         // Danger wins over the ordinary move dot: the warning is the point.
-        if (dangerTargets.has(target as Square)) {
-          styles[target] = { ...styles[target], ...DANGER_TARGET_STYLE };
+        const warning = dangerTargets.get(target as Square);
+        if (warning) {
+          styles[target] = {
+            ...styles[target],
+            ...(warning.kind === 'exposed-piece' ? EXPOSURE_TARGET_STYLE : DANGER_TARGET_STYLE),
+          };
           continue;
         }
         styles[target] = {
@@ -205,7 +289,7 @@ export function useBoardInteraction(interactive: boolean) {
     }
 
     return styles;
-  }, [fen, moves, hint, selected, legalTargets, dangerTargets]);
+  }, [fen, moves, hint, selected, legalTargets, dangerTargets, exposedPieces]);
 
   return {
     onSquareClick,
@@ -213,6 +297,7 @@ export function useBoardInteraction(interactive: boolean) {
     onPieceDrag,
     squareStyles,
     dangerTargets,
+    dangerNote,
     clearSelection: () => setSelected(null),
   };
 }

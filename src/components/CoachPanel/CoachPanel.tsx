@@ -260,7 +260,7 @@ export const CoachPanel = memo(function CoachPanel() {
               checked={dangerMode}
               onChange={setDangerMode}
               label="Danger"
-              description="Mark the squares where the piece you pick up could be captured"
+              description="Mark the moves that lose material: ⚠ the piece you picked up can be taken there, ⊕ moving there costs you a piece elsewhere"
               labelClassName="text-[0.7rem]"
             />
           </div>
