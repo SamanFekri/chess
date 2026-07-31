@@ -21,7 +21,7 @@ import {
  * the Game panel.
  */
 export const QuickActions = memo(function QuickActions() {
-  const newGame = useGameStore((state) => state.newGame);
+  const requestNewGame = useGameStore((state) => state.requestNewGame);
   const isPaused = useGameStore((state) => state.isPaused);
   const setPaused = useGameStore((state) => state.setPaused);
   const undoMove = useGameStore((state) => state.undoMove);
@@ -103,7 +103,7 @@ export const QuickActions = memo(function QuickActions() {
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <Button variant="primary" onClick={() => void newGame()} className="min-h-12">
+        <Button variant="primary" onClick={() => void requestNewGame()} className="min-h-12">
           <NewGameIcon /> New game
         </Button>
 

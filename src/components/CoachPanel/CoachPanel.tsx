@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { QUALITY_STYLES } from '../../engine/analysis';
 import { useGameStore } from '../../store/gameStore';
 import type { CoachFeedback, Insight } from '../../types';
+import { explainSan } from '../../utils/notation';
 import { formatScore } from '../../utils/score';
 import { InfoRow, Panel } from '../ui/Panel';
 import { Switch } from '../ui/Switch';
@@ -38,7 +39,10 @@ const FeedbackCard = memo(function FeedbackCard({ feedback }: { feedback: CoachF
         <h3 className={`text-sm font-bold ${style ? style.text : 'text-slate-300'}`}>
           {feedback.headline}
         </h3>
-        <span className="shrink-0 rounded-md bg-slate-800/80 px-1.5 py-0.5 font-mono text-[0.7rem] text-slate-400">
+        <span
+          className="shrink-0 cursor-help rounded-md bg-slate-800/80 px-1.5 py-0.5 font-mono text-[0.7rem] text-slate-400"
+          title={explainSan(feedback.san) ?? undefined}
+        >
           {moveNumber}
           {feedback.by === 'player' ? '' : '…'} {feedback.san}
         </span>

@@ -157,7 +157,7 @@ function StrengthSettings() {
 /** Colour picker for the next game. */
 function ColorChoice() {
   const playerColor = useGameStore((state) => state.playerColor);
-  const newGame = useGameStore((state) => state.newGame);
+  const requestNewGame = useGameStore((state) => state.requestNewGame);
 
   const options: Array<{ value: PlayerColor; label: string; icon: 'w' | 'b' }> = [
     { value: 'white', label: 'White', icon: 'w' as const },
@@ -170,7 +170,7 @@ function ColorChoice() {
         <button
           key={option.value}
           type="button"
-          onClick={() => void newGame({ playerColor: option.value })}
+          onClick={() => void requestNewGame({ playerColor: option.value })}
           aria-pressed={playerColor === option.value}
           className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 ${
             playerColor === option.value

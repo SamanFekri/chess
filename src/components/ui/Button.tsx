@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 
@@ -25,10 +25,17 @@ export function Button({
   variant = 'secondary',
   className = '',
   children,
+  ref,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; children: ReactNode }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: Variant;
+  children: ReactNode;
+  /** React 19 takes `ref` as an ordinary prop, so no `forwardRef` is needed. */
+  ref?: Ref<HTMLButtonElement>;
+}) {
   return (
     <button
+      ref={ref}
       type="button"
       className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3.5 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-45 ${VARIANTS[variant]} ${className}`}
       {...props}

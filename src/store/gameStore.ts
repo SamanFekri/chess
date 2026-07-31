@@ -185,9 +185,22 @@ interface GameStore {
   /** True once this game's result has been counted, so it counts only once. */
   ratingApplied: boolean;
 
+  /**
+   * A new game waiting on confirmation, or null.
+   *
+   * Only set when there is a game worth losing — see {@link requestNewGame}.
+   */
+  pendingNewGame: { playerColor?: PlayerColor; opponentElo?: number } | null;
+
   // ── Actions ──────────────────────────────────────────────────────────────
   bootEngine: () => Promise<void>;
   newGame: (options?: { playerColor?: PlayerColor; opponentElo?: number }) => Promise<void>;
+  /** Starts a new game, asking first when one is genuinely in progress. */
+  requestNewGame: (options?: { playerColor?: PlayerColor; opponentElo?: number }) => Promise<void>;
+  /** Goes ahead with the new game the confirmation was asked about. */
+  confirmNewGame: () => Promise<void>;
+  /** Dismisses the confirmation and keeps the current game. */
+  cancelNewGame: () => void;
   playerMove: (from: string, to: string, promotion?: string) => boolean;
   /** Opens the promotion chooser for a pawn move that needs one. */
   requestPromotion: (from: Square, to: Square) => void;
@@ -698,6 +711,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       engineStatus: 'loading',
       engineError: null,
       pendingPromotion: null,
+      pendingNewGame: null,
       redoStack: [],
       isPaused: false,
       // A new board is a new game as far as the rating is concerned.
@@ -738,6 +752,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     review: null,
 
     pendingPromotion: null,
+    pendingNewGame: null,
     redoStack: restored?.snapshot.redoStack ?? [],
 
     editMode: false,
@@ -753,6 +768,32 @@ export const useGameStore = create<GameStore>((set, get) => {
       set({ engineStatus: 'loading' });
       generation += 1;
       await startPosition(generation);
+    },
+
+    async requestNewGame(options = {}) {
+      const state = get();
+
+      // Nothing is lost when the game is already over, or when only the engine
+      // has moved — a board where you have not played yet is not "your game".
+      const youHaveMoved = state.moves.some(
+        (move) => move.color === playerCode(state.playerColor),
+      );
+      if (!youHaveMoved || state.result.status !== 'in-progress') {
+        await get().newGame(options);
+        return;
+      }
+
+      set({ pendingNewGame: options });
+    },
+
+    async confirmNewGame() {
+      const options = get().pendingNewGame ?? {};
+      set({ pendingNewGame: null });
+      await get().newGame(options);
+    },
+
+    cancelNewGame() {
+      set({ pendingNewGame: null });
     },
 
     async newGame(options = {}) {

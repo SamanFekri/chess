@@ -3,6 +3,7 @@ import { QUALITY_STYLES } from '../../engine/analysis';
 import { useGameStore } from '../../store/gameStore';
 import type { PlayedMove } from '../../types';
 import { formatScore } from '../../utils/score';
+import { explainSan, NOTATION_LEGEND } from '../../utils/notation';
 import { Panel } from '../ui/Panel';
 
 /** One clickable half-move, showing its verdict icon and resulting evaluation. */
@@ -16,6 +17,8 @@ function MoveCell({ move, isActive }: { move: PlayedMove | null; isActive: boole
   // just a record of the moves.
   const style = coachEnabled && move.quality ? QUALITY_STYLES[move.quality] : null;
   const evaluation = coachEnabled ? move.evaluation : null;
+  // What the notation actually means, for anyone still learning to read it.
+  const meaning = explainSan(move.san);
 
   return (
     <button
@@ -24,7 +27,8 @@ function MoveCell({ move, isActive }: { move: PlayedMove | null; isActive: boole
       className={`flex min-h-9 flex-1 items-center gap-1.5 rounded-lg px-2 text-left text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-400 ${
         isActive ? 'bg-blue-500/20 ring-1 ring-blue-400/50' : 'hover:bg-slate-800/70'
       }`}
-      aria-label={`${move.san}${style ? `, ${style.label}` : ''}`}
+      title={[meaning, style?.label].filter(Boolean).join(' ')}
+      aria-label={[meaning ?? move.san, style?.label].filter(Boolean).join(' ')}
       aria-pressed={isActive}
     >
       <span className="font-mono font-medium text-slate-200">{move.san}</span>
@@ -115,6 +119,19 @@ export const MoveList = memo(function MoveList() {
           </ol>
         )}
       </div>
+
+      {/* Without this the tooltips are invisible until someone happens to hover. */}
+      <p
+        className="border-t border-slate-800/70 px-4 py-2 text-[0.7rem] leading-relaxed text-slate-500"
+        title={NOTATION_LEGEND}
+      >
+        <span className="font-semibold text-slate-400">K</span> king ·{' '}
+        <span className="font-semibold text-slate-400">Q</span> queen ·{' '}
+        <span className="font-semibold text-slate-400">R</span> rook ·{' '}
+        <span className="font-semibold text-slate-400">B</span> bishop ·{' '}
+        <span className="font-semibold text-slate-400">N</span> knight · no letter is a pawn.
+        Hover a move to read it in words.
+      </p>
     </Panel>
   );
 });

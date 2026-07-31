@@ -6,6 +6,7 @@ import { GameReview } from './components/GameReview/GameReview';
 import { Header, TurnBar } from './components/Header/Header';
 import { MoveList } from './components/MoveList/MoveList';
 import { PositionEditor } from './components/EditPosition/PositionEditor';
+import { NewGameConfirm } from './components/Controls/NewGameConfirm';
 import { QuickActions } from './components/Controls/QuickActions';
 import { useEngineBoot } from './hooks/useEngineBoot';
 import { useUndoShortcut } from './hooks/useUndoShortcut';
@@ -78,6 +79,8 @@ export default function App() {
           </div>
           <PositionEditor />
         </main>
+
+        <NewGameConfirm />
       </div>
     );
   }
@@ -97,6 +100,7 @@ export default function App() {
         </main>
 
         <GameReview />
+        <NewGameConfirm />
       </div>
     );
   }
@@ -122,6 +126,7 @@ export default function App() {
       </main>
 
       <GameReview />
+      <NewGameConfirm />
     </div>
   );
 }
