@@ -22,16 +22,31 @@ const CAPTURE_TARGET_STYLE: React.CSSProperties = {
 };
 
 /**
+ * Warning triangle drawn on unsafe squares in danger mode.
+ *
+ * Inlined as a data URI because square highlighting goes through CSS only —
+ * there is no React element per square to hang a component off.
+ */
+const WARNING_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <path d="M12 3.2 22 20.4H2Z" fill="#fbbf24" stroke="#78350f" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M12 9.6v4.6" stroke="#78350f" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="12" cy="17.6" r="1.35" fill="#78350f"/>
+</svg>`;
+
+/**
  * A legal destination where the piece could be captured — danger mode.
  *
- * A hatched red wash rather than another dot, so it reads as a warning about the
- * square itself and cannot be confused with the dot marking a normal move.
+ * Amber rather than red: red is already the check highlight and the capture
+ * ring, so a third red meaning would be ambiguous. The warning triangle carries
+ * the message on its own, which also keeps it readable without colour vision.
  */
 const DANGER_TARGET_STYLE: React.CSSProperties = {
-  backgroundColor: 'rgba(239, 68, 68, 0.34)',
-  backgroundImage:
-    'repeating-linear-gradient(45deg, rgba(239,68,68,0.55) 0 4px, transparent 4px 9px)',
-  boxShadow: 'inset 0 0 0 3px rgba(239, 68, 68, 0.85)',
+  backgroundColor: 'rgba(245, 158, 11, 0.32)',
+  backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(WARNING_SVG)}")`,
+  backgroundRepeat: 'no-repeat',
+  backgroundPosition: 'center',
+  backgroundSize: '42%',
+  boxShadow: 'inset 0 0 0 3px rgba(245, 158, 11, 0.9)',
 };
 
 const LAST_MOVE_STYLE: React.CSSProperties = {
