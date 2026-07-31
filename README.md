@@ -1,13 +1,16 @@
-# AI Chess Coach
+# Shatranj AI
 
 Play chess against Stockfish in your browser and get live, plain-English coaching after every
 move. No backend, no API keys, no accounts — the engine runs locally in a Web Worker.
 
 ## What it does
 
-- **Play Stockfish** at any strength from 1320 Elo to full strength, set with a direct Elo slider.
-- **Separate coach-strength slider** controlling how deep the coach looks — shallower means faster
-  feedback, deeper means it catches more.
+- **Play Stockfish** at any strength from 400 Elo to full strength, set with a direct Elo slider.
+- **Separate coach-strength slider** (1000–3200) controlling how deep the coach looks — shallower
+  means faster feedback, deeper means it catches more.
+- **Danger mode** (off by default): pick up a piece and the squares where it could be captured are
+  marked in red. Nested under the coach switch.
+- **Installable**: add it to a phone's home screen and it runs standalone with its own icon.
 - **Set up any position** by hand in edit mode, then start playing from it.
 - **Material count** shown above the board (`+3` / `−2`) in conventional points.
 - **Coaching after every move.** Each move is graded (Brilliant → Blunder) and explained in
@@ -62,7 +65,7 @@ If the repository does not exist on GitHub yet, create it and push:
 
 ```bash
 git add .
-git commit -m "AI Chess Coach"
+git commit -m "Shatranj AI"
 git branch -M main
 git remote add origin https://github.com/<user>/<repo>.git
 git push -u origin main
@@ -149,8 +152,8 @@ work is serialised through a queue, since UCI is a single-conversation stateful 
 
 Coaching is generated locally — there is no language model involved.
 
-1. Every position is analysed at full strength with MultiPV 3, regardless of the opponent's
-   difficulty level, so coaching quality never depends on how weak the opponent is.
+1. Every position is analysed at full skill with MultiPV 3, regardless of the opponent's strength
+   setting, so coaching quality never depends on how weak the opponent is.
 2. A move is graded by the drop in **expected score** (win percentage) rather than raw
    centipawns. Losing 200 centipawns matters enormously at 0.00 and barely at all when you are
    already up a rook — win percentage captures that, centipawns do not.
@@ -164,14 +167,19 @@ Coaching is generated locally — there is no language model involved.
 
 ## The two strength sliders
 
-**Opponent Elo** (1320 → Max) is passed straight to Stockfish's `UCI_Elo`, alongside a matching
-`Skill Level` and depth/time cap so weak settings do not burn CPU playing badly. 1320 and 3190 are
-the engine's own limits — verified against the build we ship — and the **Max** position past 3190
-switches `UCI_LimitStrength` off entirely rather than setting a number.
+**Opponent Elo** (400 → Max). From 1320 up, the value is passed straight to Stockfish's `UCI_Elo`
+alongside a matching `Skill Level` and depth/time cap. 1320 and 3190 are the engine's own limits —
+verified against the build we ship — and the **Max** position past 3190 switches
+`UCI_LimitStrength` off entirely rather than setting a number.
 
-**Coach strength** (2000 → Max) controls how deep the coach searches, from 8 to 20 ply. The coach
+Below 1320 Stockfish *cannot* be asked to play weaker, so that range mixes in random legal moves
+instead, reaching a purely random mover at 400. The UI says so rather than implying a calibrated
+rating.
+
+**Coach strength** (1000 → Max) controls how deep the coach searches, from 4 to 20 ply. The coach
 always analyses at full *skill*; depth is the only thing that genuinely trades accuracy against
-speed. Lower it if feedback feels slow on a phone, raise it to catch deeper tactics.
+speed. Lower it if feedback feels slow on a phone, raise it to catch deeper tactics — at the very
+bottom it cannot see a two-move tactic and will misgrade moves, which the slider warns about.
 
 ## The rating estimate
 
@@ -195,6 +203,9 @@ Whatever you enter becomes the anchor and still moves with each finished game.
 
 Two `localStorage` keys, both versioned so a format change discards old data instead of misreading
 it:
+
+The keys keep their original `ai-chess-coach:` prefix even though the app was renamed: changing
+them would orphan every saved game and rating already in a player's browser, for no gain.
 
 - `ai-chess-coach:game` — the game in progress, saved as a SAN move list plus the verdicts, the
   coaching text and both strength settings. Snapshots written before the Elo sliders existed are

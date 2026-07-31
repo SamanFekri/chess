@@ -1,10 +1,11 @@
 {
-  "name": "ai-chess-coach",
+  "name": "shatranj-ai",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "description": "Play chess against Stockfish in the browser with live, plain-English coaching after every move.",
   "scripts": {
+    "icons": "node scripts/generate-icons.mjs",
     "predev": "node scripts/sync-stockfish.mjs",
     "dev": "vite",
     "prebuild": "node scripts/sync-stockfish.mjs",

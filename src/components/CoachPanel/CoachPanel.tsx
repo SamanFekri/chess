@@ -5,6 +5,7 @@ import { useGameStore } from '../../store/gameStore';
 import type { CoachFeedback, Insight } from '../../types';
 import { formatScore } from '../../utils/score';
 import { InfoRow, Panel } from '../ui/Panel';
+import { Switch } from '../ui/Switch';
 
 /** Icon shown next to an insight, by tone. */
 const TONE_ICON: Record<Insight['tone'], string> = {
@@ -220,6 +221,8 @@ function Briefing() {
 export const CoachPanel = memo(function CoachPanel() {
   const feedback = useGameStore((state) => state.feedback);
   const isCoachThinking = useGameStore((state) => state.isCoachThinking);
+  const dangerMode = useGameStore((state) => state.dangerMode);
+  const setDangerMode = useGameStore((state) => state.setDangerMode);
 
   const listRef = useRef<HTMLDivElement>(null);
   const recent = [...feedback].reverse().slice(0, 12);
@@ -239,11 +242,24 @@ export const CoachPanel = memo(function CoachPanel() {
           </span>
         }
         action={
-          isCoachThinking && (
-            <span className="text-xs font-medium text-blue-300" aria-live="polite">
-              analysing…
-            </span>
-          )
+          <div className="flex items-center gap-3">
+            {isCoachThinking && (
+              <span className="text-xs font-medium text-blue-300" aria-live="polite">
+                analysing…
+              </span>
+            )}
+            {/* Danger mode lives inside the coach panel rather than beside the
+                coach switch in the header: the panel only exists while the coach
+                is on, so the parent/child relationship is structural, not just a
+                visual convention. */}
+            <Switch
+              checked={dangerMode}
+              onChange={setDangerMode}
+              label="Danger"
+              description="Mark the squares where the piece you pick up could be captured"
+              labelClassName="text-[0.7rem]"
+            />
+          </div>
         }
         bodyClassName="p-0"
       >

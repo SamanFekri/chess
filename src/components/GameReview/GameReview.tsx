@@ -206,7 +206,7 @@ export const GameReview = memo(function GameReview() {
             variant="ghost"
             onClick={() =>
               downloadText(
-                'ai-chess-coach.pgn',
+                'shatranj-ai.pgn',
                 buildPgn(sanHistory, { playerColor, opponentElo, result, startFen }),
               )
             }

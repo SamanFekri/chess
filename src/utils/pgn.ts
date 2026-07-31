@@ -42,8 +42,8 @@ export function buildPgn(sanMoves: string[], meta: PgnMeta): string {
       : `Stockfish (~${meta.opponentElo} Elo)`;
   const today = new Date().toISOString().slice(0, 10).replace(/-/g, '.');
 
-  game.setHeader('Event', 'AI Chess Coach');
-  game.setHeader('Site', 'AI Chess Coach');
+  game.setHeader('Event', 'Shatranj AI');
+  game.setHeader('Site', 'Shatranj AI');
   game.setHeader('Date', today);
   game.setHeader('Round', '1');
   game.setHeader('White', meta.playerColor === 'white' ? 'Player' : engineName);

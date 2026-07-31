@@ -8,8 +8,23 @@
       name="description"
       content="Play chess against Stockfish in your browser and get live, plain-English coaching after every move."
     />
-    <title>AI Chess Coach</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%99%9E%3C/text%3E%3C/svg%3E" />
+    <title>Shatranj AI</title>
+
+    <!-- Relative hrefs throughout, so the icons resolve on a GitHub Pages
+         project subpath as well as at a domain root. -->
+    <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+
+    <!-- iOS ignores the manifest for home-screen installs and reads these
+         instead: the touch icon must be a real PNG, and without the
+         `apple-mobile-web-app-*` pair the app opens in Safari chrome rather
+         than standalone. -->
+    <link rel="apple-touch-icon" href="./icons/icon-180.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Shatranj AI" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Shatranj AI" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

@@ -10,6 +10,7 @@ import { strengthForElo } from '../engine/stockfish';
  * level 12 means something specific rather than being a made-up score.
  */
 
+/** Original key, kept through the rename so existing ratings survive. */
 const RATING_KEY = 'ai-chess-coach:rating';
 const RATING_VERSION = 1;
 
@@ -18,12 +19,6 @@ export const DEFAULT_ELO = 1200;
 
 /** Games needed before the estimate stops being labelled provisional. */
 export const PROVISIONAL_GAMES = 5;
-
-/**
- * Effective rating for the unlimited setting, which runs unhandicapped and
- * therefore reports no `UCI_Elo`. Full-strength Stockfish is far above any human.
- */
-const UNLIMITED_ELO = 3200;
 
 /** Lowest and highest rating accepted from manual entry. */
 export const MIN_MANUAL_ELO = 400;
@@ -156,11 +151,12 @@ function scoreFor(result: GameResult, playerColor: PlayerColor): number | null {
 /**
  * Rating to score a game against, for a given opponent-strength setting.
  *
- * Passes through `strengthForElo` rather than using the setting directly so the
- * "unlimited" position on the slider resolves to a concrete number.
+ * Reads `effectiveElo` rather than the engine's `UCI_Elo`, which is null both at
+ * full strength *and* below the engine's floor — using it directly would score a
+ * game against a 400-rated random mover as if it were 3200.
  */
 export function opponentEloFor(setting: number): number {
-  return strengthForElo(setting).elo ?? UNLIMITED_ELO;
+  return strengthForElo(setting).effectiveElo;
 }
 
 /**

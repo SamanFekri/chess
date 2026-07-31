@@ -6,23 +6,42 @@ import { createEngineTransport, type EngineTransport } from './worker';
 export interface StrengthSettings {
   /** Stockfish `Skill Level` (0–20). */
   skill: number;
-  /** `UCI_Elo` target, or null to play at full strength. */
+  /** `UCI_Elo` target, or null when the strength limiter is not used. */
   elo: number | null;
   /** Search depth cap for the engine's own move. */
   depth: number;
   /** Wall-clock cap in milliseconds, so weak settings also feel snappy. */
   moveTimeMs: number;
+  /**
+   * Probability of ignoring the engine and playing a random legal move.
+   *
+   * The only way to reach below Stockfish's own rating floor. At the very bottom
+   * of the slider this is 1, which is a purely random mover — about 400 Elo, and
+   * genuinely beatable by a complete beginner.
+   */
+  randomChance: number;
+  /** Strength this setting represents, for rating games against it. */
+  effectiveElo: number;
 }
 
 /** Number of alternative lines requested when analysing. */
 const ANALYSIS_MULTI_PV = 3;
 
 /**
- * Bounds of Stockfish's `UCI_Elo` option, verified against the engine build we
- * ship. Values outside this range are rejected by the engine, not clamped.
+ * Bounds of Stockfish's own `UCI_Elo` option, verified against the engine build
+ * we ship. Values outside this range are rejected by the engine, not clamped.
  */
-export const MIN_OPPONENT_ELO = 1320;
+export const ENGINE_MIN_ELO = 1320;
 export const MAX_OPPONENT_ELO = 3190;
+
+/**
+ * Bottom of the opponent slider.
+ *
+ * Below {@link ENGINE_MIN_ELO} Stockfish cannot be asked to play weaker, so this
+ * range is served by mixing in random legal moves instead — see
+ * {@link StrengthSettings.randomChance}.
+ */
+export const MIN_OPPONENT_ELO = 400;
 
 /**
  * Slider position meaning "no handicap at all".
@@ -42,22 +61,46 @@ export const UNLIMITED_ELO = MAX_OPPONENT_ELO + 10;
  */
 export function strengthForElo(elo: number): StrengthSettings {
   if (elo >= UNLIMITED_ELO) {
-    return { skill: 20, elo: null, depth: 18, moveTimeMs: 2000 };
+    return {
+      skill: 20,
+      elo: null,
+      depth: 18,
+      moveTimeMs: 2000,
+      randomChance: 0,
+      effectiveElo: UNLIMITED_ELO,
+    };
   }
 
   const clamped = Math.min(MAX_OPPONENT_ELO, Math.max(MIN_OPPONENT_ELO, Math.round(elo)));
-  const t = (clamped - MIN_OPPONENT_ELO) / (MAX_OPPONENT_ELO - MIN_OPPONENT_ELO);
 
+  // Below the engine's floor: weakest possible search, with random moves mixed
+  // in to bring the strength down the rest of the way.
+  if (clamped < ENGINE_MIN_ELO) {
+    const t = (clamped - MIN_OPPONENT_ELO) / (ENGINE_MIN_ELO - MIN_OPPONENT_ELO);
+    return {
+      skill: 0,
+      // The limiter cannot express this range, so it is switched off entirely.
+      elo: null,
+      depth: Math.max(1, Math.round(1 + t * 3)),
+      moveTimeMs: 100,
+      randomChance: Math.min(1, Math.max(0, 1 - t)),
+      effectiveElo: clamped,
+    };
+  }
+
+  const t = (clamped - ENGINE_MIN_ELO) / (MAX_OPPONENT_ELO - ENGINE_MIN_ELO);
   return {
     skill: Math.round(t * 20),
     elo: clamped,
     depth: Math.round(4 + t * 12),
     moveTimeMs: Math.round(150 + t * 1350),
+    randomChance: 0,
+    effectiveElo: clamped,
   };
 }
 
 /** Bounds of the coach-strength slider. */
-export const MIN_COACH_ELO = 2000;
+export const MIN_COACH_ELO = 1000;
 export const MAX_COACH_ELO = 3200;
 
 /** Default coach strength — trustworthy analysis that still feels immediate. */
@@ -74,7 +117,7 @@ export const DEFAULT_COACH_ELO = 2900;
 export function coachDepthForElo(elo: number): number {
   const clamped = Math.min(MAX_COACH_ELO, Math.max(MIN_COACH_ELO, Math.round(elo)));
   const t = (clamped - MIN_COACH_ELO) / (MAX_COACH_ELO - MIN_COACH_ELO);
-  return Math.round(8 + t * 12);
+  return Math.round(4 + t * 16);
 }
 
 /** Options for {@link StockfishEngine.analyse}. */
@@ -278,8 +321,10 @@ export class StockfishEngine {
 
       this.setOption('MultiPV', 1);
       if (settings.elo === null) {
+        // Either full strength, or below the limiter's floor — where Skill Level
+        // and a shallow search are all the engine itself can offer.
         this.setOption('UCI_LimitStrength', 'false');
-        this.setOption('Skill Level', 20);
+        this.setOption('Skill Level', settings.skill);
       } else {
         this.setOption('Skill Level', settings.skill);
         this.setOption('UCI_LimitStrength', 'true');

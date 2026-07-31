@@ -2,9 +2,11 @@ import { memo, useMemo } from 'react';
 import { Chess } from 'chess.js';
 import { useGameStore } from '../../store/gameStore';
 import { materialPointDiff } from '../../utils/chess';
+import { GLYPH_TINT, PIECE_GLYPH } from '../../utils/pieceGlyphs';
 import { describeRating, PROVISIONAL_GAMES } from '../../store/rating';
 import type { EngineStatus } from '../../types';
 import { Switch } from '../ui/Switch';
+import { BrandMark } from '../ui/icons';
 
 /**
  * Dot colour and label for each engine state.
@@ -152,8 +154,8 @@ export function TurnBar() {
   /** Which colour you are — the one at the bottom of the board after a flip. */
   const youAre = (
     <span className="flex shrink-0 items-center gap-1 text-slate-400">
-      <span aria-hidden className="text-base leading-none">
-        {playerColor === 'white' ? '♔' : '♚'}
+      <span aria-hidden className={`text-base leading-none ${GLYPH_TINT[playerColor === 'white' ? 'w' : 'b']}`}>
+        {PIECE_GLYPH.k}
       </span>
       <span className="hidden sm:inline">You play </span>
       {playerColor}
@@ -238,15 +240,17 @@ export const Header = memo(function Header() {
           single line down to the narrowest phones. */}
       <div className="mx-auto flex max-w-[100rem] flex-nowrap items-center justify-between gap-2 px-3 py-2.5 sm:gap-3 sm:px-6 sm:py-3">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          {/* The same mark as the installed-app icon, so the header and the
+              home-screen tile are recognisably one thing. */}
           <span
             aria-hidden
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-blue-500 to-emerald-500 text-base text-slate-950 sm:h-9 sm:w-9 sm:text-lg"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-blue-500 to-emerald-500 sm:h-9 sm:w-9"
           >
-            ♞
+            <BrandMark className="h-5 w-5 text-slate-50 sm:h-6 sm:w-6" />
           </span>
           <div className="min-w-0">
             <h1 className="truncate text-sm font-bold leading-tight text-slate-100 sm:text-base">
-              AI Chess Coach
+              Shatranj AI
             </h1>
             <p className="hidden text-xs text-slate-500 lg:block">
               Play Stockfish. Learn from every move.

@@ -1,6 +1,7 @@
 import { memo, useState, type ReactNode } from 'react';
 import {
   coachDepthForElo,
+  ENGINE_MIN_ELO,
   MAX_COACH_ELO,
   MAX_OPPONENT_ELO,
   MIN_COACH_ELO,
@@ -11,12 +12,18 @@ import { useGameStore } from '../../store/gameStore';
 import { MAX_MANUAL_ELO, MIN_MANUAL_ELO } from '../../store/rating';
 import type { PlayerColor } from '../../types';
 import { buildPgn, copyToClipboard, downloadText } from '../../utils/pgn';
+import { GLYPH_TINT, PIECE_GLYPH } from '../../utils/pieceGlyphs';
 import { Button } from '../ui/Button';
 import { Panel } from '../ui/Panel';
 
 /** Plain-English description of an opponent strength setting. */
 function opponentDescription(elo: number): string {
   if (elo >= UNLIMITED_ELO) return 'Full strength, no handicap. Unbeatable for almost anyone.';
+  // Stockfish cannot be asked to play below its own floor, so this range mixes
+  // in random legal moves. Say so, rather than implying a calibrated rating.
+  if (elo <= 500) return 'Plays at random. A first opponent — it will hang everything.';
+  if (elo < 900) return 'Mostly random, occasionally sensible. Good for learning the moves.';
+  if (elo < ENGINE_MIN_ELO) return 'Half random, half thought out. It will miss most of your threats.';
   if (elo < 1500) return 'Beginner. Makes real mistakes you can punish.';
   if (elo < 1800) return 'Casual club player. Takes any piece you leave loose.';
   if (elo < 2100) return 'Solid club player. Punishes weak moves consistently.';
@@ -27,6 +34,9 @@ function opponentDescription(elo: number): string {
 /** Plain-English description of a coach strength setting. */
 function coachDescription(elo: number): string {
   const depth = coachDepthForElo(elo);
+  if (elo <= 1400) {
+    return `Looks only ${depth} moves ahead. Near-instant, but expect wrong verdicts — it cannot see a two-move tactic.`;
+  }
   if (elo <= 2200) {
     return `Looks ${depth} moves ahead. Fast feedback, but it will miss deeper tactics.`;
   }
@@ -133,6 +143,13 @@ function StrengthSettings() {
           {MAX_OPPONENT_ELO} is the highest Elo Stockfish accepts. Drag to Max for no handicap.
         </p>
       )}
+
+      {opponentElo < ENGINE_MIN_ELO && (
+        <p className="text-xs text-amber-300/80">
+          Below {ENGINE_MIN_ELO} Stockfish cannot play any weaker, so this range mixes in random
+          moves instead. The figure is a rough guide, not a calibrated rating.
+        </p>
+      )}
     </div>
   );
 }
@@ -142,9 +159,9 @@ function ColorChoice() {
   const playerColor = useGameStore((state) => state.playerColor);
   const newGame = useGameStore((state) => state.newGame);
 
-  const options: Array<{ value: PlayerColor; label: string; icon: string }> = [
-    { value: 'white', label: 'White', icon: '♔' },
-    { value: 'black', label: 'Black', icon: '♚' },
+  const options: Array<{ value: PlayerColor; label: string; icon: 'w' | 'b' }> = [
+    { value: 'white', label: 'White', icon: 'w' as const },
+    { value: 'black', label: 'Black', icon: 'b' as const },
   ];
 
   return (
@@ -161,8 +178,8 @@ function ColorChoice() {
               : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
           }`}
         >
-          <span aria-hidden className="text-lg leading-none">
-            {option.icon}
+          <span aria-hidden className={`text-lg leading-none ${GLYPH_TINT[option.icon]}`}>
+            {PIECE_GLYPH.k}
           </span>
           Play {option.label}
         </button>
@@ -332,7 +349,7 @@ function TransferPanel() {
             </Button>
             <Button
               variant="ghost"
-              onClick={() => downloadText('ai-chess-coach.pgn', pgn())}
+              onClick={() => downloadText('shatranj-ai.pgn', pgn())}
               className="col-span-2"
             >
               ⬇ Download PGN

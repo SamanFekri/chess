@@ -1,3 +1,5 @@
+import { useId } from 'react';
+
 /**
  * Inline SVG icons.
  *
@@ -21,6 +23,44 @@ const base = {
   'aria-hidden': true,
   focusable: false,
 } as const;
+
+/**
+ * The app mark: a robot head on a pawn's body.
+ *
+ * The same geometry as the installed-app icons in `scripts/generate-icons.mjs`,
+ * expressed as SVG so the header and the home-screen icon are the one mark. The
+ * eyes are masked out rather than filled, so whatever sits behind the mark —
+ * here, the gradient tile — shows through them exactly as it does in the PNGs.
+ */
+export function BrandMark({ className = 'h-5 w-5' }: { className?: string }) {
+  // Scoped so a second instance cannot collide with this one's mask.
+  const maskId = useId();
+
+  return (
+    <svg viewBox="0 0 100 100" className={className} aria-hidden focusable="false">
+      <mask id={maskId}>
+        <rect width="100" height="100" fill="#000" />
+        <g fill="#fff">
+          {/* Antenna. */}
+          <circle cx="50" cy="6" r="4" />
+          <rect x="47.5" y="8" width="5" height="8" rx="1" />
+          {/* Head. */}
+          <rect x="25" y="14" width="50" height="33" rx="11" />
+          {/* Neck, collar, body, base. */}
+          <rect x="43" y="46" width="14" height="5" rx="1" />
+          <rect x="31" y="50" width="38" height="8" rx="4" />
+          <path d="M38 58 H62 L71 79 H29 Z" />
+          <rect x="21" y="78" width="58" height="12" rx="5" />
+        </g>
+        {/* Eyes punched back out. */}
+        <circle cx="39" cy="30" r="6" fill="#000" />
+        <circle cx="61" cy="30" r="6" fill="#000" />
+      </mask>
+
+      <rect width="100" height="100" fill="currentColor" mask={`url(#${maskId})`} />
+    </svg>
+  );
+}
 
 /** Counter-clockwise arrow: undo. */
 export function UndoIcon({ className = 'h-4 w-4' }: { className?: string }) {

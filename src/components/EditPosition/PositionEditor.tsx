@@ -2,27 +2,30 @@ import { memo, useState } from 'react';
 import type { Color, PieceSymbol } from 'chess.js';
 import { useGameStore } from '../../store/gameStore';
 import { PIECE_NAME } from '../../utils/chess';
+import { GLYPH_TINT, PIECE_GLYPH } from '../../utils/pieceGlyphs';
 import { Button } from '../ui/Button';
 import { Panel } from '../ui/Panel';
 import { TrashIcon } from '../ui/icons';
 
-/** Unicode glyph for each piece, by colour. */
-const GLYPH: Record<Color, Record<PieceSymbol, string>> = {
-  w: { k: '♔', q: '♕', r: '♖', b: '♗', n: '♘', p: '♙' },
-  b: { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' },
-};
-
 /** Palette order — most-used pieces first. */
 const PIECES: PieceSymbol[] = ['q', 'r', 'b', 'n', 'p', 'k'];
 
-/** One selectable palette entry. */
+/**
+ * One selectable palette entry.
+ *
+ * The tile uses the board's light-square colour rather than the panel's dark
+ * slate, so a white piece and a black piece are both legible against it — the
+ * same reason the board itself has light squares.
+ */
 function PaletteButton({
-  glyph,
+  type,
+  color,
   label,
   selected,
   onClick,
 }: {
-  glyph: string;
+  type: PieceSymbol;
+  color: Color;
   label: string;
   selected: boolean;
   onClick: () => void;
@@ -34,13 +37,13 @@ function PaletteButton({
       aria-pressed={selected}
       aria-label={label}
       title={label}
-      className={`grid aspect-square min-h-11 place-items-center rounded-xl text-2xl leading-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 ${
+      className={`grid aspect-square min-h-11 place-items-center rounded-xl text-2xl leading-none transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 ${
         selected
-          ? 'bg-blue-500/90 text-white ring-2 ring-blue-300'
-          : 'bg-slate-800 text-slate-100 hover:bg-slate-700'
+          ? 'bg-blue-400 ring-2 ring-blue-200'
+          : 'bg-[#dfe6ee] hover:bg-white'
       }`}
     >
-      {glyph}
+      <span className={GLYPH_TINT[color]}>{PIECE_GLYPH[type]}</span>
     </button>
   );
 }
@@ -134,7 +137,8 @@ export const PositionEditor = memo(function PositionEditor() {
             {PIECES.map((type) => (
               <PaletteButton
                 key={type}
-                glyph={GLYPH[color][type]}
+                type={type}
+                color={color}
                 label={`${color === 'w' ? 'White' : 'Black'} ${PIECE_NAME[type]}`}
                 selected={isSelected(color, type)}
                 onClick={() => setEditSelection({ type, color })}
@@ -165,8 +169,8 @@ export const PositionEditor = memo(function PositionEditor() {
         value={turn}
         onChange={setEditTurn}
         options={[
-          { value: 'w', label: '♔ White' },
-          { value: 'b', label: '♚ Black' },
+          { value: 'w', label: 'White' },
+          { value: 'b', label: 'Black' },
         ]}
       />
 
@@ -175,8 +179,8 @@ export const PositionEditor = memo(function PositionEditor() {
         value={editPlayerColor}
         onChange={setEditPlayerColor}
         options={[
-          { value: 'white', label: '♔ White' },
-          { value: 'black', label: '♚ Black' },
+          { value: 'white', label: 'White' },
+          { value: 'black', label: 'Black' },
         ]}
       />
 

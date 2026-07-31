@@ -1,6 +1,7 @@
 import { Chess, DEFAULT_POSITION, validateFen } from 'chess.js';
 import {
   DEFAULT_COACH_ELO,
+  ENGINE_MIN_ELO,
   MAX_COACH_ELO,
   MAX_OPPONENT_ELO,
   MIN_COACH_ELO,
@@ -20,6 +21,10 @@ import type { RedoEntry } from './gameStore';
  * (verdicts, coaching text) is presentation that hangs off that move list.
  */
 
+/**
+ * Kept on the app's original name after the rename to Shatranj AI: changing the
+ * key would orphan every game already saved in a player's browser.
+ */
 const GAME_KEY = 'ai-chess-coach:game';
 
 /** Bumped when the shape changes, so old entries are discarded, not misread. */
@@ -39,6 +44,8 @@ export interface GameSnapshot {
   /** Coach analysis strength in Elo. */
   coachElo: number;
   coachEnabled: boolean;
+  /** Whether unsafe destination squares are marked when a piece is picked up. */
+  dangerMode: boolean;
   moves: PlayedMove[];
   feedback: CoachFeedback[];
   result: GameResult;
@@ -111,6 +118,8 @@ export function loadGame(): RestoredGame | null {
       opponentElo: clampOpponentElo(parsed),
       coachElo: clampCoachElo(parsed.coachElo),
       coachEnabled: parsed.coachEnabled !== false,
+      // Off unless explicitly switched on, so it never surprises a new player.
+      dangerMode: parsed.dangerMode === true,
       // Metadata is indexed by ply; anything beyond the replayed moves is stale.
       moves: (Array.isArray(parsed.moves) ? parsed.moves : []).filter(
         (move) => move && typeof move.ply === 'number' && move.ply < plies,
@@ -154,8 +163,9 @@ function clampOpponentElo(parsed: Partial<GameSnapshot> & { level?: unknown }): 
   if (typeof parsed.level === 'number' && Number.isFinite(parsed.level)) {
     const level = Math.min(20, Math.max(1, Math.round(parsed.level)));
     if (level >= 20) return UNLIMITED_ELO;
+    // The old 1–20 scale spanned the engine's own range, not the wider slider.
     const t = (level - 1) / 18;
-    return Math.round(MIN_OPPONENT_ELO + t * (MAX_OPPONENT_ELO - MIN_OPPONENT_ELO));
+    return Math.round(ENGINE_MIN_ELO + t * (MAX_OPPONENT_ELO - ENGINE_MIN_ELO));
   }
 
   return 1800;

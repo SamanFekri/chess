@@ -180,43 +180,133 @@ function attackerValues(
 }
 
 /**
- * Finds pieces of `color` that the opponent can profitably take.
+ * Reports whether the piece standing on `square` can be profitably taken.
  *
- * This is a static exchange approximation, not a search: a piece counts as loose
- * when it is attacked and either undefended, or attacked by something cheaper
- * than itself. That catches the overwhelming majority of the "you just left your
- * knight there" situations a learner needs pointed out, and Stockfish's own
- * evaluation is what we actually trust for the verdict.
+ * A static exchange approximation, not a search: the piece is at risk when it is
+ * attacked and either undefended, or attacked by something cheaper than itself.
+ * That catches the overwhelming majority of the "you just left your knight
+ * there" situations a learner needs pointed out.
+ *
+ * @returns The risk, or null when the square is empty, holds a king, or is safe.
  */
+export function pieceAtRisk(chess: Chess, square: Square): HangingPiece | null {
+  const piece = chess.get(square);
+  if (!piece || piece.type === 'k') return null;
+
+  const enemy = opposite(piece.color);
+  const defenders = chess.attackers(square, piece.color);
+  const isDefended = defenders.length > 0;
+  const values = attackerValues(chess, square, enemy, isDefended);
+  if (values.length === 0) return null;
+
+  const cheapestAttacker = Math.min(...values);
+  const value = PIECE_VALUE[piece.type];
+
+  // Free piece, or a trade the opponent wins material on.
+  if (isDefended && cheapestAttacker >= value) return null;
+
+  return {
+    square,
+    type: piece.type,
+    value,
+    undefended: !isDefended,
+    cheapestAttacker,
+  };
+}
+
+/** Finds every piece of `color` that the opponent can profitably take. */
 export function findLoosePieces(chess: Chess, color: Color): HangingPiece[] {
-  const enemy = opposite(color);
-  const loose: HangingPiece[] = [];
+  return squaresOf(chess, color)
+    .map((square) => pieceAtRisk(chess, square))
+    .filter((risk): risk is HangingPiece => risk !== null)
+    .sort((a, b) => b.value - a.value);
+}
 
-  for (const square of squaresOf(chess, color)) {
-    const piece = chess.get(square);
-    if (!piece || piece.type === 'k') continue;
+/** Cheapest capture of `square` available to `color`, or null. */
+function cheapestCaptureOf(chess: Chess, square: Square, color: Color): Move | null {
+  if (chess.turn() !== color) return null;
 
-    const defenders = chess.attackers(square, color);
-    const isDefended = defenders.length > 0;
-    const values = attackerValues(chess, square, enemy, isDefended);
-    if (values.length === 0) continue;
+  let best: Move | null = null;
+  for (const move of chess.moves({ verbose: true })) {
+    if (move.to !== square || !move.captured) continue;
+    if (!best || PIECE_VALUE[move.piece] < PIECE_VALUE[best.piece]) best = move;
+  }
+  return best;
+}
 
-    const cheapestAttacker = Math.min(...values);
-    const value = PIECE_VALUE[piece.type];
+/**
+ * For each square the piece on `from` could move to, whether moving there would
+ * actually lose material.
+ *
+ * Each candidate is played on a throwaway board, then the cheapest enemy capture
+ * of that square and the cheapest recapture are played on top — a short static
+ * exchange. The comparison is against the material balance *before* the move,
+ * which is what stops winning captures being painted as dangerous: taking a
+ * defended queen with a knight leaves the knight capturable, but the exchange is
+ * still winning, and flagging it red would teach exactly the wrong lesson.
+ *
+ * Only the cheapest capture and recapture are considered rather than a full
+ * search, which keeps a click on a piece to a handful of board clones.
+ *
+ * @returns Destination squares that lose material, keyed by square.
+ */
+export function riskyDestinations(chess: Chess, from: Square): Map<Square, HangingPiece> {
+  const risky = new Map<Square, HangingPiece>();
+  const fen = chess.fen();
+  const mover = chess.get(from)?.color;
+  if (!mover) return risky;
 
-    // Free piece, or a trade the opponent wins material on.
-    if (!isDefended || cheapestAttacker < value) {
-      loose.push({
-        square,
-        type: piece.type,
-        value,
-        undefended: !isDefended,
-        cheapestAttacker,
+  const enemy = opposite(mover);
+  const baseline = materialBalance(chess, mover);
+
+  for (const move of chess.moves({ square: from, verbose: true })) {
+    const target = move.to as Square;
+
+    const probe = new Chess(fen);
+    try {
+      probe.move({
+        from: move.from,
+        to: move.to,
+        ...(move.promotion ? { promotion: move.promotion } : {}),
+      });
+    } catch {
+      continue;
+    }
+
+    // Nothing can take it: safe, whatever it is standing next to.
+    const capture = cheapestCaptureOf(probe, target, enemy);
+    if (!capture) continue;
+
+    probe.move({
+      from: capture.from,
+      to: capture.to,
+      ...(capture.promotion ? { promotion: capture.promotion } : {}),
+    });
+
+    // Take back if that helps — a defended piece is only lost for real when the
+    // recapture still leaves you down.
+    const recapture = cheapestCaptureOf(probe, target, mover);
+    if (recapture) {
+      probe.move({
+        from: recapture.from,
+        to: recapture.to,
+        ...(recapture.promotion ? { promotion: recapture.promotion } : {}),
       });
     }
+
+    if (materialBalance(probe, mover) >= baseline) continue;
+
+    const piece = chess.get(from)!;
+    risky.set(target, {
+      square: target,
+      type: move.promotion ?? piece.type,
+      value: PIECE_VALUE[move.promotion ?? piece.type],
+      undefended: !recapture,
+      cheapestAttacker: PIECE_VALUE[capture.piece],
+    });
   }
 
-  return loose.sort((a, b) => b.value - a.value);
+  return risky;
 }
 
 /** How many of the four central squares a side attacks or occupies. */

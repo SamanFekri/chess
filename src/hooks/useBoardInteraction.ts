@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Chess } from 'chess.js';
 import type { Square } from 'chess.js';
+import { riskyDestinations, type HangingPiece } from '../utils/chess';
 import { useGameStore } from '../store/gameStore';
 
 /** Squares highlighted on the board, keyed by square name. */
@@ -18,6 +19,19 @@ const MOVE_TARGET_STYLE: React.CSSProperties = {
 const CAPTURE_TARGET_STYLE: React.CSSProperties = {
   background:
     'radial-gradient(circle at center, transparent 54%, rgba(248, 113, 113, 0.55) 56%)',
+};
+
+/**
+ * A legal destination where the piece could be captured — danger mode.
+ *
+ * A hatched red wash rather than another dot, so it reads as a warning about the
+ * square itself and cannot be confused with the dot marking a normal move.
+ */
+const DANGER_TARGET_STYLE: React.CSSProperties = {
+  backgroundColor: 'rgba(239, 68, 68, 0.34)',
+  backgroundImage:
+    'repeating-linear-gradient(45deg, rgba(239,68,68,0.55) 0 4px, transparent 4px 9px)',
+  boxShadow: 'inset 0 0 0 3px rgba(239, 68, 68, 0.85)',
 };
 
 const LAST_MOVE_STYLE: React.CSSProperties = {
@@ -45,6 +59,8 @@ export function useBoardInteraction(interactive: boolean) {
   const hint = useGameStore((state) => state.hint);
   const playerMove = useGameStore((state) => state.playerMove);
   const requestPromotion = useGameStore((state) => state.requestPromotion);
+  const coachEnabled = useGameStore((state) => state.coachEnabled);
+  const dangerMode = useGameStore((state) => state.dangerMode);
 
   const [selected, setSelected] = useState<Square | null>(null);
 
@@ -121,6 +137,20 @@ export function useBoardInteraction(interactive: boolean) {
     [interactive],
   );
 
+  /**
+   * Destinations where the selected piece could be taken.
+   *
+   * Only computed while a piece is actually selected, so the per-move board
+   * clones cost nothing until you pick something up. Gated on the coach being on
+   * as well as danger mode: this is coaching, not a rule of the game.
+   */
+  const dangerTargets = useMemo(() => {
+    if (!interactive || !selected || !coachEnabled || !dangerMode) {
+      return new Map<Square, HangingPiece>();
+    }
+    return riskyDestinations(new Chess(fen), selected);
+  }, [interactive, selected, coachEnabled, dangerMode, fen]);
+
   /** Highlights: last move, check, selection, legal targets and any hint. */
   const squareStyles = useMemo<SquareStyles>(() => {
     const styles: SquareStyles = {};
@@ -147,6 +177,11 @@ export function useBoardInteraction(interactive: boolean) {
     if (selected) {
       styles[selected] = { ...styles[selected], ...SELECTED_STYLE };
       for (const [target, isCapture] of legalTargets) {
+        // Danger wins over the ordinary move dot: the warning is the point.
+        if (dangerTargets.has(target as Square)) {
+          styles[target] = { ...styles[target], ...DANGER_TARGET_STYLE };
+          continue;
+        }
         styles[target] = {
           ...styles[target],
           ...(isCapture ? CAPTURE_TARGET_STYLE : MOVE_TARGET_STYLE),
@@ -155,7 +190,14 @@ export function useBoardInteraction(interactive: boolean) {
     }
 
     return styles;
-  }, [fen, moves, hint, selected, legalTargets]);
+  }, [fen, moves, hint, selected, legalTargets, dangerTargets]);
 
-  return { onSquareClick, onPieceDrop, onPieceDrag, squareStyles, clearSelection: () => setSelected(null) };
+  return {
+    onSquareClick,
+    onPieceDrop,
+    onPieceDrag,
+    squareStyles,
+    dangerTargets,
+    clearSelection: () => setSelected(null),
+  };
 }

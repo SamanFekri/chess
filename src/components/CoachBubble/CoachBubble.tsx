@@ -76,7 +76,8 @@ export const CoachBubble = memo(function CoachBubble() {
           className="coach-cloud absolute bottom-8 left-3 z-20 w-[min(17rem,72%)] cursor-pointer sm:w-[min(19rem,62%)]"
           style={
             {
-              '--cloud-bg': 'rgba(2, 6, 23, 0.96)',
+              '--cloud-bg': 'rgba(9, 12, 28, 0.97)',
+              '--cloud-bg-top': 'rgba(30, 35, 56, 0.97)',
               '--cloud-glow': GLOW,
             } as React.CSSProperties
           }
@@ -85,46 +86,49 @@ export const CoachBubble = memo(function CoachBubble() {
           aria-live="polite"
           title="Click to dismiss"
         >
-          {/* Cloud puffs along the top edge. */}
-          <span className="coach-cloud__puff" style={{ left: '13%', top: -13, width: 34, height: 34 }} />
-          <span className="coach-cloud__puff" style={{ left: '35%', top: -21, width: 48, height: 48 }} />
-          <span className="coach-cloud__puff" style={{ left: '63%', top: -15, width: 36, height: 36 }} />
-          <span className="coach-cloud__puff" style={{ right: '6%', top: -8, width: 24, height: 24 }} />
+          {/* Tail: three shrinking dots trailing off the bottom-left corner. */}
+          <span className="coach-cloud__puff" style={{ left: 20, bottom: -12, width: 16, height: 16 }} />
+          <span className="coach-cloud__puff" style={{ left: 8, bottom: -25, width: 10, height: 10 }} />
+          <span className="coach-cloud__puff" style={{ left: 1, bottom: -34, width: 6, height: 6 }} />
 
-          {/* Tail: two shrinking dots trailing off the bottom-left corner. */}
-          <span className="coach-cloud__puff" style={{ left: 16, bottom: -13, width: 15, height: 15 }} />
-          <span className="coach-cloud__puff" style={{ left: 5, bottom: -26, width: 9, height: 9 }} />
-
-          <div className="coach-cloud__body px-4 py-3">
-            <p className={`text-sm font-bold leading-tight ${style.text}`}>
-              <span aria-hidden className="mr-1">
+          <div className="coach-cloud__body px-3.5 py-3">
+            <div className="flex items-center gap-2">
+              <span
+                aria-hidden
+                className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-sm font-black text-slate-950"
+                style={{ backgroundColor: style.hex }}
+              >
                 {style.icon}
               </span>
-              {style.label}
-              <span className="ml-1.5 font-mono text-xs font-medium text-slate-400">
+              <p className={`text-sm font-bold leading-tight ${style.text}`}>{style.label}</p>
+              <span className="ml-auto rounded-md bg-white/5 px-1.5 py-0.5 font-mono text-[0.7rem] font-medium text-slate-300">
                 {blunder.san}
               </span>
-            </p>
+            </div>
 
             {/* Clamped so a long explanation cannot grow the cloud over the board. */}
-            <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-slate-300">
+            <p className="mt-2 line-clamp-3 text-xs leading-relaxed text-slate-200">
               {firstSentence(blunder.body)}
             </p>
 
-            {blunder.centipawnLoss !== null && blunder.centipawnLoss >= 100 && (
-              <p className="mt-1 text-[0.7rem] font-medium text-slate-500">
-                Cost about {(blunder.centipawnLoss / 100).toFixed(1)} pawns.
-              </p>
-            )}
-
-            {blunder.suggestions.length > 0 && (
-              <p className="mt-1 text-[0.7rem] text-slate-400">
-                Better:{' '}
-                <span className="font-mono font-semibold text-emerald-300">
-                  {blunder.suggestions[0].san}
-                </span>
-              </p>
-            )}
+            {(blunder.centipawnLoss !== null && blunder.centipawnLoss >= 100) ||
+            blunder.suggestions.length > 0 ? (
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/10 pt-2 text-[0.7rem]">
+                {blunder.centipawnLoss !== null && blunder.centipawnLoss >= 100 && (
+                  <span className="font-medium text-red-300/90">
+                    −{(blunder.centipawnLoss / 100).toFixed(1)} pawns
+                  </span>
+                )}
+                {blunder.suggestions.length > 0 && (
+                  <span className="text-slate-400">
+                    Better:{' '}
+                    <span className="font-mono font-semibold text-emerald-300">
+                      {blunder.suggestions[0].san}
+                    </span>
+                  </span>
+                )}
+              </div>
+            ) : null}
           </div>
         </motion.div>
       )}

@@ -3,12 +3,7 @@ import type { Color, PieceSymbol } from 'chess.js';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../../store/gameStore';
 import { PIECE_NAME } from '../../utils/chess';
-
-/** Unicode glyph for each promotable piece, by colour. */
-const GLYPH: Record<Color, Record<'q' | 'r' | 'b' | 'n', string>> = {
-  w: { q: '♕', r: '♖', b: '♗', n: '♘' },
-  b: { q: '♛', r: '♜', b: '♝', n: '♞' },
-};
+import { GLYPH_TINT, PIECE_GLYPH } from '../../utils/pieceGlyphs';
 
 /** Offered in descending value — queen is right the vast majority of the time. */
 const CHOICES: Array<'q' | 'r' | 'b' | 'n'> = ['q', 'r', 'b', 'n'];
@@ -66,9 +61,9 @@ export const PromotionChooser = memo(function PromotionChooser() {
               onClick={() => resolvePromotion(piece as PieceSymbol)}
               title={REASON[piece]}
               aria-label={`Promote to ${PIECE_NAME[piece]}. ${REASON[piece]}`}
-              className="grid aspect-square place-items-center rounded-xl bg-slate-800 text-3xl leading-none text-slate-100 transition-colors hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400"
+              className="grid aspect-square place-items-center rounded-xl bg-[#dfe6ee] text-3xl leading-none transition-colors hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400"
             >
-              {GLYPH[color][piece]}
+              <span className={GLYPH_TINT[color]}>{PIECE_GLYPH[piece]}</span>
             </button>
           ))}
         </div>

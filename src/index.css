@@ -49,14 +49,13 @@
 
 @layer components {
   /**
-   * Speech cloud used for the verdict bubble over the board.
+   * Speech bubble used for the verdict over the board.
    *
-   * The cloud silhouette is assembled from a rounded body plus circular "puffs",
-   * all filled with the same colour and carrying no borders of their own. The
-   * outline and shadow live on the wrapper as `drop-shadow`, which traces the
-   * combined alpha of every child — so the puffs melt into the body instead of
-   * showing seams where they overlap, which is what happens if each part draws
-   * its own border.
+   * The silhouette is a rounded body plus the circular tail dots, all filled with
+   * the same colour and carrying no borders of their own. The outline and shadow
+   * live on the wrapper as `drop-shadow`, which traces the combined alpha of
+   * every child — so the tail melts into the body instead of showing seams where
+   * the shapes overlap, which is what happens if each part draws its own border.
    */
   .coach-cloud {
     position: relative;
@@ -68,10 +67,12 @@
     position: relative;
     z-index: 1;
     border-radius: 1.5rem;
-    background: var(--cloud-bg);
+    /* A slight top-down lift stops the large flat fill from looking like a
+       plain box with circles stuck to it. */
+    background: linear-gradient(160deg, var(--cloud-bg-top), var(--cloud-bg));
   }
 
-  /* Puffs and the trailing tail dots: pure fill, no border, behind the body. */
+  /* Tail dots: pure fill, no border, behind the body. */
   .coach-cloud__puff {
     position: absolute;
     z-index: 0;

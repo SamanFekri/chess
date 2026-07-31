@@ -14,6 +14,7 @@ import {
   coachDepthForElo,
   DEFAULT_COACH_ELO,
   getEngine,
+  strengthForElo,
   MAX_COACH_ELO,
   MIN_COACH_ELO,
   MIN_OPPONENT_ELO,
@@ -96,6 +97,13 @@ interface GameStore {
    * hints, no evaluation — and no analysis searches are run at all.
    */
   coachEnabled: boolean;
+  /**
+   * Whether picking up a piece marks the squares where it could be captured.
+   *
+   * A child of {@link coachEnabled}: it is coaching, so it only applies while the
+   * coach is on, and the control for it lives inside the coach panel.
+   */
+  dangerMode: boolean;
 
   // ── Position ─────────────────────────────────────────────────────────────
   /**
@@ -198,6 +206,7 @@ interface GameStore {
   setOpponentElo: (elo: number) => void;
   setCoachElo: (elo: number) => void;
   setCoachEnabled: (enabled: boolean) => Promise<void>;
+  setDangerMode: (enabled: boolean) => void;
   /** Anchors the rating estimate to a value the player supplies. */
   setRatingManually: (elo: number) => void;
   /** Discards the rating estimate and its game counters. */
@@ -390,7 +399,19 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     try {
       const fenBefore = game.fen();
-      const uci = await getEngine().chooseMove(fenBefore, get().opponentElo);
+
+      // Below Stockfish's own rating floor the engine cannot be asked to play
+      // weaker, so a share of moves are picked at random instead. At the very
+      // bottom of the slider that share is 1 — a purely random mover.
+      const strength = strengthForElo(get().opponentElo);
+      let uci: string | null;
+      if (strength.randomChance > 0 && Math.random() < strength.randomChance) {
+        const legal = game.moves({ verbose: true });
+        uci = legal.length > 0 ? legal[Math.floor(Math.random() * legal.length)].lan : null;
+      } else {
+        uci = await getEngine().chooseMove(fenBefore, get().opponentElo);
+      }
+
       if (!isCurrent(token) || !uci) {
         if (isCurrent(token)) set({ isOpponentThinking: false, engineStatus: 'ready' });
         return;
@@ -693,6 +714,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     coachElo: restored?.snapshot.coachElo ?? DEFAULT_COACH_ELO,
     boardOrientation: restored?.snapshot.boardOrientation ?? 'white',
     coachEnabled: restored?.snapshot.coachEnabled ?? true,
+    dangerMode: restored?.snapshot.dangerMode ?? false,
 
     startFen: restored?.snapshot.startFen ?? DEFAULT_POSITION,
     fen: game.fen(),
@@ -934,6 +956,10 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     setCoachElo(elo) {
       set({ coachElo: Math.min(MAX_COACH_ELO, Math.max(MIN_COACH_ELO, Math.round(elo))) });
+    },
+
+    setDangerMode(enabled) {
+      set({ dangerMode: enabled });
     },
 
     async setCoachEnabled(enabled) {
@@ -1196,6 +1222,7 @@ function persistenceKey(state: GameStore): string {
     state.opponentElo,
     state.coachElo,
     state.coachEnabled,
+    state.dangerMode,
     state.ratingApplied,
   ].join('|');
 }
@@ -1224,6 +1251,7 @@ useGameStore.subscribe((state) => {
     opponentElo: state.opponentElo,
     coachElo: state.coachElo,
     coachEnabled: state.coachEnabled,
+    dangerMode: state.dangerMode,
     moves: state.moves,
     feedback: state.feedback,
     result: state.result,
