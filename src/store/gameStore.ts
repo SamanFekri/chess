@@ -23,6 +23,7 @@ import {
 import type {
   CoachFeedback,
   EngineStatus,
+  GameClock,
   GameResult,
   GameReview,
   PlayedMove,
@@ -75,6 +76,47 @@ let generation = 0;
 function coachDepth(state: { coachElo: number }): number {
   return coachDepthForElo(state.coachElo);
 }
+
+/**
+ * How long the opponent spends "thinking" before its move appears, at minimum.
+ *
+ * A weak opponent answers in a few milliseconds, and at the bottom of the slider
+ * the move is picked at random with no search at all — instant replies feel less
+ * like an opponent than like the board twitching, and they make it easy to move
+ * again before noticing what changed. The jitter matters as much as the floor: a
+ * fixed pause is its own kind of mechanical.
+ */
+const THINKING_FLOOR_MS = 420;
+const THINKING_JITTER_MS = 380;
+
+/**
+ * Holds the engine's reply back until it has been "thinking" for a natural
+ * length of time. A search that already took longer is not delayed further.
+ */
+function pauseForThinking(startedAt: number): Promise<void> {
+  const target = THINKING_FLOOR_MS + Math.random() * THINKING_JITTER_MS;
+  const remaining = target - (Date.now() - startedAt);
+  if (remaining <= 0) return Promise.resolve();
+  return new Promise((resolve) => setTimeout(resolve, remaining));
+}
+
+/** A clock with both sides on zero and nothing running. */
+function emptyClock(): GameClock {
+  return { w: 0, b: 0, since: null, side: null };
+}
+
+/**
+ * The longest stretch a single clock segment may bank.
+ *
+ * The clock is synced every few seconds while it runs, so a real segment is
+ * never long. A much larger gap means the timer itself stopped firing — a
+ * sleeping laptop, or a tab the browser froze without telling us — and that time
+ * was not spent thinking about the position.
+ */
+const MAX_CLOCK_SEGMENT_MS = 30_000;
+
+/** How much thinking time may accumulate before the game is written to storage. */
+const CLOCK_PERSIST_BUCKET_MS = 15_000;
 
 /** One taken-back ply, with everything the coach had said about it. */
 export interface RedoEntry {
@@ -129,6 +171,8 @@ interface GameStore {
    * fires off a reply.
    */
   isPaused: boolean;
+  /** Time each side has spent thinking in this game. */
+  clock: GameClock;
 
   // ── Engine ───────────────────────────────────────────────────────────────
   engineStatus: EngineStatus;
@@ -216,6 +260,14 @@ interface GameStore {
   flipBoard: () => Promise<void>;
   /** Halts or resumes play. Resuming lets the engine move if it is its turn. */
   setPaused: (paused: boolean) => Promise<void>;
+  /**
+   * Banks the time the running side has used and either restarts the clock for
+   * whoever is to move now, or stops it.
+   *
+   * Driven by `useGameClock`, which owns the question of whether the clock
+   * should be running at all; the store only does the arithmetic.
+   */
+  syncClock: (running: boolean) => void;
   setOpponentElo: (elo: number) => void;
   setCoachElo: (elo: number) => void;
   setCoachEnabled: (enabled: boolean) => Promise<void>;
@@ -360,12 +412,13 @@ export const useGameStore = create<GameStore>((set, get) => {
   /**
    * Ends the game, updates the rating, and produces the post-game review.
    *
-   * With coaching off no move was ever graded, so a review would be a table of
-   * zeroes; the game simply ends instead. The rating is updated either way — it
-   * comes from the result, not from the analysis.
+   * The review is built whether or not coaching was on. With the coach off there
+   * are no grades to report, and `buildReview` says so — but the result, the
+   * opening and the rating change are real either way, and a game that just ends
+   * with nothing shown leaves the player wondering whether it registered at all.
    */
   const finishGame = (result: GameResult) => {
-    const { moves, playerColor, coachEnabled, rating, ratingApplied, opponentElo } = get();
+    const { moves, playerColor, rating, ratingApplied, opponentElo } = get();
 
     // `finishIfOver` can be reached from more than one path in a single ply, so
     // the flag is what guarantees one rating update per game.
@@ -378,7 +431,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       result,
       rating: updated,
       ratingApplied: true,
-      review: coachEnabled ? buildReview(moves, playerCode(playerColor)) : null,
+      review: buildReview(moves, playerCode(playerColor)),
       isOpponentThinking: false,
       isCoachThinking: false,
       engineStatus: 'ready',
@@ -401,6 +454,7 @@ export const useGameStore = create<GameStore>((set, get) => {
    * depends on how weak the opponent is.
    */
   const playOpponentMove = async (token: number) => {
+    const startedThinking = Date.now();
     // Checked here rather than at each call site so boot, resume, redo and the
     // normal move cycle all respect a pause without repeating the test.
     if (get().isPaused) {
@@ -423,6 +477,15 @@ export const useGameStore = create<GameStore>((set, get) => {
         uci = legal.length > 0 ? legal[Math.floor(Math.random() * legal.length)].lan : null;
       } else {
         uci = await getEngine().chooseMove(fenBefore, get().opponentElo);
+      }
+
+      await pauseForThinking(startedThinking);
+
+      // Pausing during that wait should stop the move, not merely stop the next
+      // one: the position is unchanged, so resuming simply asks again.
+      if (isCurrent(token) && get().isPaused) {
+        set({ isOpponentThinking: false, engineStatus: 'ready' });
+        return;
       }
 
       if (!isCurrent(token) || !uci) {
@@ -714,6 +777,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       pendingNewGame: null,
       redoStack: [],
       isPaused: false,
+      clock: emptyClock(),
       // A new board is a new game as far as the rating is concerned.
       ratingApplied: false,
     });
@@ -737,6 +801,9 @@ export const useGameStore = create<GameStore>((set, get) => {
     result: restored?.snapshot.result ?? { status: 'in-progress' },
     viewingPly: null,
     isPaused: restored?.snapshot.isPaused ?? false,
+    // Restored stopped: whatever the tab was doing while it was closed, it was
+    // not thinking about this position.
+    clock: { ...(restored?.snapshot.clock ?? emptyClock()), since: null, side: null },
 
     engineStatus: 'idle',
     engineError: null,
@@ -989,6 +1056,29 @@ export const useGameStore = create<GameStore>((set, get) => {
       }
     },
 
+    syncClock(running) {
+      const { clock, result } = get();
+      const now = Date.now();
+      let { w, b } = clock;
+
+      if (clock.since !== null && clock.side) {
+        const elapsed = Math.min(Math.max(0, now - clock.since), MAX_CLOCK_SEGMENT_MS);
+        if (clock.side === 'w') w += elapsed;
+        else b += elapsed;
+      }
+
+      // A finished game's clock stops no matter what the caller thinks.
+      const active = running && result.status === 'in-progress';
+      const since = active ? now : null;
+      const side = active ? game.turn() : null;
+
+      // Bail on a genuine no-op so a stopped clock is not re-setting state every
+      // few seconds and re-rendering the board with it.
+      if (w === clock.w && b === clock.b && since === clock.since && side === clock.side) return;
+
+      set({ clock: { w, b, since, side } });
+    },
+
     setOpponentElo(elo) {
       set({
         opponentElo: Math.min(UNLIMITED_ELO, Math.max(MIN_OPPONENT_ELO, Math.round(elo))),
@@ -1009,6 +1099,8 @@ export const useGameStore = create<GameStore>((set, get) => {
       if (!enabled) {
         // Abandon any search in flight; nothing is going to read its result.
         getEngine().stop();
+        // An open review survives: those grades were really earned, and closing
+        // the report out from under the player would look like a crash.
         set({
           coachEnabled: false,
           analysis: null,
@@ -1016,7 +1108,6 @@ export const useGameStore = create<GameStore>((set, get) => {
           hint: null,
           isHintLoading: false,
           isCoachThinking: false,
-          review: null,
         });
         return;
       }
@@ -1258,6 +1349,10 @@ function persistenceKey(state: GameStore): string {
     state.result.status,
     state.redoStack.length,
     state.isPaused,
+    // Bucketed rather than exact: the clock changes constantly, and a save every
+    // tick would rewrite the whole game to storage several times a minute. At
+    // worst a reload loses the last few seconds of thinking time.
+    Math.floor((state.clock.w + state.clock.b) / CLOCK_PERSIST_BUCKET_MS),
     state.playerColor,
     state.boardOrientation,
     state.opponentElo,
@@ -1298,6 +1393,7 @@ useGameStore.subscribe((state) => {
     result: state.result,
     redoStack: state.redoStack,
     isPaused: state.isPaused,
+    clock: state.clock,
     ratingApplied: state.ratingApplied,
   });
 });

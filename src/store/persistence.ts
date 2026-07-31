@@ -8,7 +8,7 @@ import {
   MIN_OPPONENT_ELO,
   UNLIMITED_ELO,
 } from '../engine/stockfish';
-import type { CoachFeedback, GameResult, PlayedMove, PlayerColor } from '../types';
+import type { CoachFeedback, GameClock, GameResult, PlayedMove, PlayerColor } from '../types';
 import type { RedoEntry } from './gameStore';
 
 /**
@@ -53,6 +53,8 @@ export interface GameSnapshot {
   redoStack: RedoEntry[];
   /** Whether play was halted when the game was saved. */
   isPaused: boolean;
+  /** Thinking time per side, in milliseconds. */
+  clock: GameClock;
   /** Whether this game's result has already been counted towards the rating. */
   ratingApplied: boolean;
 }
@@ -139,6 +141,7 @@ export function loadGame(): RestoredGame | null {
           ? parsed.redoStack
           : [],
       isPaused: parsed.isPaused === true,
+      clock: readClock(parsed.clock),
       ratingApplied: parsed.ratingApplied === true,
     };
 
@@ -169,6 +172,20 @@ function clampOpponentElo(parsed: Partial<GameSnapshot> & { level?: unknown }): 
   }
 
   return 1800;
+}
+
+/**
+ * Reads the stored thinking time.
+ *
+ * Always restored stopped: the running segment belonged to a tab that is no
+ * longer open, and resuming it would bill the player for the time the game spent
+ * closed. Games saved before the clock existed simply start from zero.
+ */
+function readClock(clock: unknown): GameClock {
+  const stored = (clock ?? {}) as Partial<GameClock>;
+  const ms = (value: unknown) =>
+    typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
+  return { w: ms(stored.w), b: ms(stored.b), since: null, side: null };
 }
 
 /** Clamps a stored coach strength into the supported range. */

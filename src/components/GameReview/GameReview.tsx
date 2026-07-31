@@ -5,6 +5,7 @@ import { useGameStore } from '../../store/gameStore';
 import { describeRating, opponentEloFor } from '../../store/rating';
 import type { MoveQuality, SideReview } from '../../types';
 import { buildPgn, downloadText } from '../../utils/pgn';
+import { describeDuration } from '../../utils/time';
 import { Button } from '../ui/Button';
 
 /** Quality labels shown in the breakdown, in the order they are listed. */
@@ -83,6 +84,7 @@ export const GameReview = memo(function GameReview() {
   const opponentElo = useGameStore((state) => state.opponentElo);
   const startFen = useGameStore((state) => state.startFen);
   const rating = useGameStore((state) => state.rating);
+  const clock = useGameStore((state) => state.clock);
 
   if (!review) return null;
 
@@ -128,8 +130,14 @@ export const GameReview = memo(function GameReview() {
         </div>
 
         <div className="mt-4 flex gap-3">
-          <AccuracyDial value={review.player.accuracy} label="You" />
-          <AccuracyDial value={review.engine.accuracy} label="Stockfish" />
+          {/* Accuracy is only meaningful when the moves were actually graded —
+              with the coach off there is nothing behind the number. */}
+          {review.graded && (
+            <>
+              <AccuracyDial value={review.player.accuracy} label="You" />
+              <AccuracyDial value={review.engine.accuracy} label="Stockfish" />
+            </>
+          )}
           <div className="flex-1 rounded-xl bg-slate-950/60 p-3 text-center">
             <p className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-slate-500">
               Your rating
@@ -153,13 +161,23 @@ export const GameReview = memo(function GameReview() {
 
         <p className="mt-2 text-xs leading-relaxed text-slate-500">
           {describeRating(rating)} You played Stockfish at roughly {opponentEloFor(opponentElo)}{' '}
-          Elo.
+          Elo. You spent {describeDuration(playerColor === 'white' ? clock.w : clock.b)} on the
+          board, your opponent {describeDuration(playerColor === 'white' ? clock.b : clock.w)}.
         </p>
 
-        <section className="mt-5">
-          <h3 className="text-sm font-semibold text-slate-200">Your moves</h3>
-          <Breakdown review={review.player} />
-        </section>
+        {review.graded ? (
+          <section className="mt-5">
+            <h3 className="text-sm font-semibold text-slate-200">Your moves</h3>
+            <Breakdown review={review.player} />
+          </section>
+        ) : (
+          <p className="mt-4 rounded-xl border border-slate-700/70 bg-slate-950/50 px-3 py-2.5 text-sm leading-relaxed text-slate-400">
+            You played this one with the coach off, so there are no move grades to
+            report. Turn <span className="font-semibold text-slate-300">Coach</span> on in the
+            header and the next game gets accuracy figures, a move breakdown and the moments
+            worth going back over.
+          </p>
+        )}
 
         {review.keyMoments.length > 0 && (
           <section className="mt-5">
@@ -180,6 +198,7 @@ export const GameReview = memo(function GameReview() {
           </section>
         )}
 
+        {review.advice.length > 0 && (
         <section className="mt-5">
           <h3 className="text-sm font-semibold text-slate-200">How to improve</h3>
           <ul className="mt-2 space-y-2">
@@ -193,6 +212,7 @@ export const GameReview = memo(function GameReview() {
             ))}
           </ul>
         </section>
+        )}
 
         <div className="mt-6 flex flex-wrap gap-2">
           <Button

@@ -304,6 +304,13 @@ export function buildReview(moves: PlayedMove[], playerColor: 'w' | 'b'): GameRe
   const engine = summarise(engineMoves);
   const opening = identifyOpening(moves.map((move) => move.san));
 
+  // Played with the coach off, no move was ever measured. Everything downstream
+  // of a grade is left empty rather than reported as a perfect game.
+  const graded = playerMoves.some((move) => move.centipawnLoss !== null);
+  if (!graded) {
+    return { player, engine, opening, graded, advice: [], keyMoments: [] };
+  }
+
   const keyMoments = playerMoves
     .filter((move) => isMistakeLike(move.quality))
     .sort((a, b) => (b.centipawnLoss ?? 0) - (a.centipawnLoss ?? 0))
@@ -315,7 +322,7 @@ export function buildReview(moves: PlayedMove[], playerColor: 'w' | 'b'): GameRe
       summary: describeKeyMoment(move),
     }));
 
-  return { player, engine, opening, advice: buildAdvice(player, playerMoves), keyMoments };
+  return { player, engine, opening, graded, advice: buildAdvice(player, playerMoves), keyMoments };
 }
 
 /** One-line description of why a move made the review list. */

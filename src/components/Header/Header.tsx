@@ -1,7 +1,8 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { Chess } from 'chess.js';
 import { useGameStore } from '../../store/gameStore';
 import { materialPointDiff } from '../../utils/chess';
+import { describeDuration, formatDuration } from '../../utils/time';
 import { GLYPH_TINT, PIECE_GLYPH } from '../../utils/pieceGlyphs';
 import { describeRating, PROVISIONAL_GAMES } from '../../store/rating';
 import type { EngineStatus } from '../../types';
@@ -110,6 +111,67 @@ function EngineStatusChip() {
 }
 
 /**
+ * Time spent on the move by each side, yours first.
+ *
+ * Ticks locally rather than from the store: the store banks the elapsed time
+ * every few seconds and on every event that stops the clock, and a readout that
+ * re-rendered the whole app once a second to show it would be a poor trade. Only
+ * your own time is shown on a phone, where the bar has no room for both.
+ */
+function GameClockReadout() {
+  const clock = useGameStore((state) => state.clock);
+  const playerColor = useGameStore((state) => state.playerColor);
+  const [, forceTick] = useState(0);
+
+  // A running clock has to redraw; a stopped one is already correct.
+  useEffect(() => {
+    if (clock.since === null) return;
+    const id = setInterval(() => forceTick((n) => n + 1), 500);
+    return () => clearInterval(id);
+  }, [clock.since]);
+
+  const elapsed = (side: 'w' | 'b') => {
+    const banked = side === 'w' ? clock.w : clock.b;
+    const live = clock.since !== null && clock.side === side ? Date.now() - clock.since : 0;
+    return banked + live;
+  };
+
+  const you = playerColor === 'white' ? 'w' : 'b';
+  const them = you === 'w' ? 'b' : 'w';
+  const running = clock.since !== null;
+
+  return (
+    <span
+      className="flex shrink-0 items-center gap-1 tabular-nums"
+      title={`Thinking time — you ${describeDuration(elapsed(you))}, opponent ${describeDuration(
+        elapsed(them),
+      )}. The clock stops when the game is paused or the tab is in the background.`}
+    >
+      <span aria-hidden className={running && clock.side === you ? 'text-blue-300' : 'text-slate-600'}>
+        ⏱
+      </span>
+      <span
+        className={running && clock.side === you ? 'text-slate-200' : 'text-slate-400'}
+        aria-label={`Your thinking time: ${describeDuration(elapsed(you))}`}
+      >
+        {formatDuration(elapsed(you))}
+      </span>
+      <span aria-hidden className="hidden text-slate-600 sm:inline">
+        /
+      </span>
+      <span
+        aria-hidden
+        className={`hidden sm:inline ${
+          running && clock.side === them ? 'text-slate-200' : 'text-slate-500'
+        }`}
+      >
+        {formatDuration(elapsed(them))}
+      </span>
+    </span>
+  );
+}
+
+/**
  * Whose turn it is and which colour you are, in a slim bar above the board.
  *
  * Deliberately not in the header: on a phone the header cannot fit this and stay
@@ -175,6 +237,7 @@ export function TurnBar() {
       <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-900/60 px-3 py-2 text-xs font-semibold ring-1 ring-slate-800">
         <span className={tone}>{result.reason}</span>
         <span className="flex items-center gap-3">
+          <GameClockReadout />
           {material}
           {youAre}
         </span>
@@ -193,6 +256,9 @@ export function TurnBar() {
         <span className="flex items-center gap-2 text-amber-200" aria-live="polite">
           <span aria-hidden>⏸</span>
           Paused — {isPlayer ? 'your move' : "opponent's move"} when you resume
+        </span>
+        <span className="flex items-center gap-3 text-amber-200/70">
+          <GameClockReadout />
         </span>
         <button
           type="button"
@@ -223,6 +289,7 @@ export function TurnBar() {
         </span>
       </button>
       <span className="flex items-center gap-3">
+        <GameClockReadout />
         {material}
         {youAre}
       </span>

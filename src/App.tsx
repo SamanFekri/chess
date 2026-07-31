@@ -9,6 +9,7 @@ import { PositionEditor } from './components/EditPosition/PositionEditor';
 import { NewGameConfirm } from './components/Controls/NewGameConfirm';
 import { QuickActions } from './components/Controls/QuickActions';
 import { useEngineBoot } from './hooks/useEngineBoot';
+import { useGameClock } from './hooks/useGameClock';
 import { useUndoShortcut } from './hooks/useUndoShortcut';
 import { useGameStore } from './store/gameStore';
 
@@ -63,6 +64,7 @@ function BoardColumn({ withEvaluation }: { withEvaluation: boolean }) {
 export default function App() {
   useEngineBoot();
   useUndoShortcut();
+  useGameClock();
   const coachEnabled = useGameStore((state) => state.coachEnabled);
   const editMode = useGameStore((state) => state.editMode);
 

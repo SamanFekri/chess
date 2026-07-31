@@ -168,6 +168,14 @@ export interface GameReview {
   player: SideReview;
   engine: SideReview;
   opening: string;
+  /**
+   * Whether the moves carry grades.
+   *
+   * False for a game played with the coach off: the result, the opening and the
+   * rating change are all still real, but every accuracy figure would be an
+   * artefact of having measured nothing.
+   */
+  graded: boolean;
   /** Ordered, actionable coaching takeaways. */
   advice: string[];
   /** The worst few moves, for a "review these" list. */
@@ -177,6 +185,23 @@ export interface GameReview {
     quality: MoveQuality;
     summary: string;
   }>;
+}
+
+/**
+ * Time each side has spent on the move, in milliseconds.
+ *
+ * Not a chess clock: nothing runs out and nobody loses on time. It measures
+ * attention, which is why it stops for a pause, for the position editor and for
+ * a tab you have switched away from — time spent in another window is not time
+ * spent thinking about the position.
+ */
+export interface GameClock {
+  w: number;
+  b: number;
+  /** When the currently running segment started, or null when stopped. */
+  since: number | null;
+  /** The side that segment belongs to. */
+  side: 'w' | 'b' | null;
 }
 
 /** Engine lifecycle, surfaced in the header so loading is never a mystery. */
