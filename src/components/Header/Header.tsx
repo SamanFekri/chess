@@ -7,7 +7,7 @@ import { GLYPH_TINT, PIECE_GLYPH } from '../../utils/pieceGlyphs';
 import { describeRating, PROVISIONAL_GAMES } from '../../store/rating';
 import type { EngineStatus } from '../../types';
 import { Switch } from '../ui/Switch';
-import { BrandMark } from '../ui/icons';
+import { BrandMark, SoundOffIcon, SoundOnIcon } from '../ui/icons';
 
 /**
  * Dot colour and label for each engine state.
@@ -82,6 +82,38 @@ function CoachSwitch() {
       description="Turn off for a plain game with no coaching, hints or evaluation"
       labelClassName="text-[0.7rem] sm:text-sm"
     />
+  );
+}
+
+/**
+ * Mute toggle.
+ *
+ * An icon button rather than a labelled switch: the header has to stay on one
+ * line on a phone, and a speaker with a line through it needs no caption.
+ */
+function SoundToggle() {
+  const soundEnabled = useGameStore((state) => state.soundEnabled);
+  const setSoundEnabled = useGameStore((state) => state.setSoundEnabled);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setSoundEnabled(!soundEnabled)}
+      aria-pressed={soundEnabled}
+      aria-label={soundEnabled ? 'Mute sound effects' : 'Turn sound effects on'}
+      title={
+        soundEnabled
+          ? 'Sound is on — moves, captures, promotions and the result'
+          : 'Sound is off'
+      }
+      className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ring-1 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 ${
+        soundEnabled
+          ? 'bg-slate-900/70 text-slate-300 ring-slate-800 hover:text-slate-100'
+          : 'bg-slate-900/70 text-slate-600 ring-slate-800 hover:text-slate-400'
+      }`}
+    >
+      {soundEnabled ? <SoundOnIcon /> : <SoundOffIcon />}
+    </button>
   );
 }
 
@@ -328,6 +360,7 @@ export const Header = memo(function Header() {
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <RatingChip />
           <EngineStatusChip />
+          <SoundToggle />
           <CoachSwitch />
         </div>
       </div>

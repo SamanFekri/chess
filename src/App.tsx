@@ -10,6 +10,7 @@ import { NewGameConfirm } from './components/Controls/NewGameConfirm';
 import { QuickActions } from './components/Controls/QuickActions';
 import { useEngineBoot } from './hooks/useEngineBoot';
 import { useGameClock } from './hooks/useGameClock';
+import { useSoundUnlock } from './hooks/useSoundUnlock';
 import { useUndoShortcut } from './hooks/useUndoShortcut';
 import { useGameStore } from './store/gameStore';
 
@@ -65,6 +66,7 @@ export default function App() {
   useEngineBoot();
   useUndoShortcut();
   useGameClock();
+  useSoundUnlock();
   const coachEnabled = useGameStore((state) => state.coachEnabled);
   const editMode = useGameStore((state) => state.editMode);
 

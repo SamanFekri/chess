@@ -135,3 +135,25 @@ export function FlipIcon({ className = 'h-4 w-4' }: { className?: string }) {
     </svg>
   );
 }
+
+/** Speaker with sound waves: audio is on. */
+export function SoundOnIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg {...base} className={className}>
+      <polygon points="4 9 8 9 13 5 13 19 8 15 4 15" fill="currentColor" stroke="none" />
+      <path d="M16.5 8.5a5 5 0 0 1 0 7" />
+      <path d="M19 6a8.5 8.5 0 0 1 0 12" />
+    </svg>
+  );
+}
+
+/** Speaker with a cross: muted. */
+export function SoundOffIcon({ className = 'h-4 w-4' }: { className?: string }) {
+  return (
+    <svg {...base} className={className}>
+      <polygon points="4 9 8 9 13 5 13 19 8 15 4 15" fill="currentColor" stroke="none" />
+      <line x1="17" y1="9" x2="22" y2="15" />
+      <line x1="22" y1="9" x2="17" y2="15" />
+    </svg>
+  );
+}

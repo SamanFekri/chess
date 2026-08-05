@@ -31,6 +31,9 @@ import type {
   PositionAnalysis,
 } from '../types';
 import { isBookMove } from '../utils/openings';
+// Aliased because the store exposes an action of the same name that wraps it.
+import { playSound, setSoundEnabled as applyMuteSetting, soundForMove } from '../utils/sound';
+import { loadSoundEnabled, saveSoundEnabled } from './preferences';
 import { MATE_SCORE, toWhitePov } from '../utils/score';
 import { parseFen, parsePgn } from '../utils/pgn';
 import { clearGame, loadGame, saveGame } from './persistence';
@@ -100,6 +103,14 @@ function pauseForThinking(startedAt: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, remaining));
 }
 
+/**
+ * The stored mute setting, applied to the sound module before anything can play.
+ *
+ * Read once at module load, the same way the saved game and rating are.
+ */
+const initialSoundEnabled = loadSoundEnabled();
+applyMuteSetting(initialSoundEnabled);
+
 /** A clock with both sides on zero and nothing running. */
 function emptyClock(): GameClock {
   return { w: 0, b: 0, since: null, side: null };
@@ -146,6 +157,13 @@ interface GameStore {
    * coach is on, and the control for it lives inside the coach panel.
    */
   dangerMode: boolean;
+  /**
+   * Whether the app makes any sound.
+   *
+   * Independent of {@link coachEnabled}: the effects are about the game, not the
+   * coaching, so a plain game still sounds like a game.
+   */
+  soundEnabled: boolean;
 
   // ── Position ─────────────────────────────────────────────────────────────
   /**
@@ -272,6 +290,8 @@ interface GameStore {
   setCoachElo: (elo: number) => void;
   setCoachEnabled: (enabled: boolean) => Promise<void>;
   setDangerMode: (enabled: boolean) => void;
+  /** Mutes or unmutes the sound effects, and remembers the choice. */
+  setSoundEnabled: (enabled: boolean) => void;
   /** Anchors the rating estimate to a value the player supplies. */
   setRatingManually: (elo: number) => void;
   /** Discards the rating estimate and its game counters. */
@@ -427,6 +447,19 @@ export const useGameStore = create<GameStore>((set, get) => {
       : applyGame(rating, result, playerColor, opponentElo);
     if (!ratingApplied) saveRating(updated);
 
+    // Same guard as the rating, and for the same reason: a single game end can
+    // reach here from more than one path in one ply, and the fanfare must not
+    // play twice.
+    if (!ratingApplied && result.status !== 'in-progress') {
+      playSound(
+        result.winner === null
+          ? 'draw'
+          : result.winner === playerCode(playerColor)
+            ? 'win'
+            : 'lose',
+      );
+    }
+
     set({
       result,
       rating: updated,
@@ -436,6 +469,19 @@ export const useGameStore = create<GameStore>((set, get) => {
       isCoachThinking: false,
       engineStatus: 'ready',
     });
+  };
+
+  /**
+   * Plays the sound for a move that has just landed on the board.
+   *
+   * Check is announced instead of the move's own sound, not on top of it: two
+   * overlapping cues are heard as one muddled noise, and being in check is the
+   * more urgent of the two facts. A move that ends the game stays silent for the
+   * same reason — the win, loss or draw sound follows immediately behind it.
+   */
+  const announceMove = (move: Move) => {
+    if (game.isGameOver()) return;
+    playSound(game.inCheck() ? 'check' : soundForMove(move));
   };
 
   /** Ends the game if the board says it is over. Returns whether it did. */
@@ -507,6 +553,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       }
 
       const ply = game.history().length - 1;
+      announceMove(move);
       syncPosition();
       set({
         moves: [
@@ -793,6 +840,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     boardOrientation: restored?.snapshot.boardOrientation ?? 'white',
     coachEnabled: restored?.snapshot.coachEnabled ?? true,
     dangerMode: restored?.snapshot.dangerMode ?? false,
+    soundEnabled: initialSoundEnabled,
 
     startFen: restored?.snapshot.startFen ?? DEFAULT_POSITION,
     fen: game.fen(),
@@ -890,6 +938,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       }
 
       const ply = game.history().length - 1;
+      announceMove(move);
 
       // The board updates synchronously; coaching catches up asynchronously.
       // This is what keeps the piece drop feeling instant while Stockfish works.
@@ -1091,6 +1140,15 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     setDangerMode(enabled) {
       set({ dangerMode: enabled });
+    },
+
+    setSoundEnabled(enabled) {
+      set({ soundEnabled: enabled });
+      applyMuteSetting(enabled);
+      saveSoundEnabled(enabled);
+      // Unmuting from a click is the one gesture guaranteed to satisfy the
+      // autoplay policy, so it doubles as confirmation that sound now works.
+      if (enabled) playSound('move');
     },
 
     async setCoachEnabled(enabled) {
