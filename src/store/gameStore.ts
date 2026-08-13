@@ -1163,6 +1163,9 @@ export const useGameStore = create<GameStore>((set, get) => {
       const state = get();
       if (state.result.status !== 'in-progress') return false;
       if (state.isOpponentThinking || state.isPaused) return false;
+      // Explaining is studying, not playing. Checked here as well as on the
+      // board so every route to a move obeys the same rule.
+      if (state.explainMode) return false;
       if (game.turn() !== playerCode(state.playerColor)) return false;
 
       const fenBefore = game.fen();

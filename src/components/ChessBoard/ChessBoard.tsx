@@ -52,6 +52,7 @@ export const ChessBoard = memo(function ChessBoard() {
   const editPlayerColor = useGameStore((state) => state.editPlayerColor);
   const explanation = useGameStore((state) => state.explanation);
   const explainStep = useGameStore((state) => state.explainStep);
+  const explainMode = useGameStore((state) => state.explainMode);
 
   /**
    * While editing, the board follows the side being set up rather than the
@@ -71,10 +72,23 @@ export const ChessBoard = memo(function ChessBoard() {
   }, [editMode, editFen, viewingPly, moves, fen]);
 
   const turn = displayFen.split(' ')[1] === 'b' ? 'black' : 'white';
+
+  /**
+   * Explain Mode is for studying, not playing.
+   *
+   * The board stops accepting moves and becomes a place to think: the coach
+   * draws its reasoning, and you draw yours. Letting a move be played in the
+   * middle of an explanation would leave the arrows describing a position that
+   * is no longer there, and — more to the point — pointing at the board and
+   * playing on it are two different activities.
+   */
+  const studying = explainMode && !editMode && !isBrowsing;
+
   const interactive =
     !editMode &&
     !isBrowsing &&
     !isPaused &&
+    !studying &&
     result.status === 'in-progress' &&
     !isOpponentThinking &&
     turn === playerColor;
@@ -176,8 +190,16 @@ export const ChessBoard = memo(function ChessBoard() {
             overflow: 'hidden',
             boxShadow: '0 18px 45px -20px rgba(2, 6, 23, 0.9)',
           },
-          // Arrow drawing would fight with tap-to-move on touch screens.
-          allowDrawingArrows: false,
+          /**
+           * Your own arrows, on top of the coach's.
+           *
+           * Only while studying: the board library draws these with a
+           * right-button drag, and every left-button gesture belongs to moving a
+           * piece the rest of the time. The two sets are kept apart internally,
+           * so scribbling over an explanation cannot disturb it — and a left
+           * click wipes yours without touching the coach's.
+           */
+          allowDrawingArrows: studying,
         }}
       />
 

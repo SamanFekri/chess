@@ -15,8 +15,8 @@ const SYNC_INTERVAL_MS = 5000;
  *
  * The clock measures time spent thinking about the position, so it stops for
  * everything that means the player is not doing that: a pause, the position
- * editor, a finished game, and — the one that actually catches people out — a
- * tab switched away from or a phone put to sleep. `visibilitychange` fires the
+ * editor, Explain Mode, a finished game, and — the one that actually catches
+ * people out — a tab switched away from or a phone put to sleep. `visibilitychange` fires the
  * moment the page is hidden, which banks the time up to that instant; nothing
  * accrues until it comes back.
  *
@@ -28,6 +28,9 @@ export function useGameClock() {
   const status = useGameStore((state) => state.result.status);
   const isPaused = useGameStore((state) => state.isPaused);
   const editMode = useGameStore((state) => state.editMode);
+  // Explain Mode takes the board away, so it stops the clock for the same reason
+  // pausing does: you cannot be on the move if you cannot move.
+  const explainMode = useGameStore((state) => state.explainMode);
   // Move count rather than the FEN: this exists to re-sync exactly when the turn
   // changes, so each side is billed for its own time and not its opponent's.
   const plies = useGameStore((state) => state.sanHistory.length);
@@ -54,7 +57,7 @@ export function useGameClock() {
     };
   }, []);
 
-  const running = status === 'in-progress' && !isPaused && !editMode && onScreen;
+  const running = status === 'in-progress' && !isPaused && !editMode && !explainMode && onScreen;
 
   useEffect(() => {
     // Banks the previous segment and starts one for whoever is to move now. Also

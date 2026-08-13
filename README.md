@@ -10,7 +10,7 @@ move. No backend, no API keys, no accounts — the engine runs locally in a Web 
   thinking time, candidate moves, threads and memory.
 - **Explain Mode** — the coach draws its thinking on the board: arrows for the move it wants, the
   line that follows and the threats against you, revealed one step at a time with a sentence for
-  each.
+  each. The board becomes a study board while it is on, and you can draw your own arrows too.
 - **Separate coach-strength slider** (1000–3200) controlling how deep the coach looks — shallower
   means faster feedback, deeper means it catches more.
 - **Danger mode** (off by default): pick up a piece and the squares where it could be captured are
@@ -218,6 +218,15 @@ phone screen or colour blindness:
 The card above the board carries the sentence and the transport: play/pause, step forward and
 back, replay, and **✕ to wipe the drawings** without leaving the mode. The progress dots are also
 a step picker, so you can jump straight back to "what are they threatening".
+
+**While Explain Mode is on the board is for studying, not playing.** Moves are refused — pointing
+at a position and playing on it are two different activities, and a move mid-explanation would
+leave the arrows describing a board that is no longer there. Instead you can **draw your own
+arrows** with a right-button drag (desktop only: the board library draws them with the right mouse
+button, and a touch screen has none). Your arrows and the coach's are kept separate, so scribbling
+over an explanation cannot disturb it, and a left click wipes yours without touching the coach's.
+The turn bar above the board says so and carries a **▶ Play on** button that hands the game back.
+The clock stops while you study, for the same reason it stops when the game is paused.
 
 The script is rebuilt from the same analysis that feeds the sidebar, so the arrows and the numbers
 can never describe different searches, and it is tied to the FEN it was written for — an

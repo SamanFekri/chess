@@ -215,6 +215,8 @@ export function TurnBar() {
   const playerColor = useGameStore((state) => state.playerColor);
   const isPaused = useGameStore((state) => state.isPaused);
   const setPaused = useGameStore((state) => state.setPaused);
+  const explainMode = useGameStore((state) => state.explainMode);
+  const setExplainMode = useGameStore((state) => state.setExplainMode);
 
   /**
    * Material difference in conventional points, from your side.
@@ -279,6 +281,33 @@ export function TurnBar() {
 
   const turn = fen.split(' ')[1] === 'b' ? 'black' : 'white';
   const isPlayer = turn === playerColor;
+
+  /**
+   * Explain Mode blocks moves, so it has to say so where the player looks for
+   * whose turn it is — and offer the way out in the same place, exactly as the
+   * paused bar does. A board that silently ignores a piece being dragged is the
+   * single most confusing thing this app could do.
+   */
+  if (explainMode) {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs font-semibold ring-1 ring-emerald-400/40">
+        <span className="flex min-w-0 items-center gap-2 text-emerald-200" aria-live="polite">
+          <span aria-hidden>🎓</span>
+          <span className="truncate">
+            Explaining — the board is for studying
+            <span className="hidden sm:inline">, not playing. Right-drag to draw your own arrows.</span>
+          </span>
+        </span>
+        <button
+          type="button"
+          onClick={() => setExplainMode(false)}
+          className="shrink-0 rounded-lg bg-emerald-400 px-3 py-1 text-xs font-bold text-slate-950 transition-colors hover:bg-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+        >
+          ▶ Play on
+        </button>
+      </div>
+    );
+  }
 
   // Paused is the loudest thing the bar can say: nothing moves until it is
   // cleared, so the way out has to be right there.
