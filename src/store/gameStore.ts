@@ -22,6 +22,7 @@ import {
 } from '../engine/stockfish';
 import type {
   CoachFeedback,
+  CoachTip,
   EngineStatus,
   GameClock,
   GameResult,
@@ -29,11 +30,13 @@ import type {
   PlayedMove,
   PlayerColor,
   PositionAnalysis,
+  TipLevel,
 } from '../types';
 import { isBookMove } from '../utils/openings';
 // Aliased because the store exposes an action of the same name that wraps it.
 import { playSound, setSoundEnabled as applyMuteSetting, soundForMove } from '../utils/sound';
-import { loadSoundEnabled, saveSoundEnabled } from './preferences';
+import { loadSoundEnabled, loadTipLevel, saveSoundEnabled, saveTipLevel } from './preferences';
+import { buildTip, passesLevel } from '../engine/tips';
 import { MATE_SCORE, toWhitePov } from '../utils/score';
 import { parseFen, parsePgn } from '../utils/pgn';
 import { clearGame, loadGame, saveGame } from './persistence';
@@ -74,6 +77,12 @@ if (restored) game = restored.game;
  * longer exists.
  */
 let generation = 0;
+
+/**
+ * The last advice the coach gave, so it does not give the same advice twice in a
+ * row. Reset with the board, since a new game is a fresh conversation.
+ */
+let lastTipKey: string | null = null;
 
 /** Current coach search depth, from the `coachElo` setting. */
 function coachDepth(state: { coachElo: number }): number {
@@ -164,6 +173,11 @@ interface GameStore {
    * coaching, so a plain game still sounds like a game.
    */
   soundEnabled: boolean;
+  /**
+   * How much unprompted advice the coach volunteers, from silence to a tip most
+   * moves. A child of {@link coachEnabled}, like {@link dangerMode}.
+   */
+  tipLevel: TipLevel;
 
   // ── Position ─────────────────────────────────────────────────────────────
   /**
@@ -206,6 +220,12 @@ interface GameStore {
   hint: Hint | null;
   isHintLoading: boolean;
   review: GameReview | null;
+  /**
+   * Advice about the position you are about to move in, or null.
+   *
+   * Distinct from {@link feedback}, which is always about a move already played.
+   */
+  tip: CoachTip | null;
 
   /**
    * A pawn move waiting for the player to choose what it promotes to.
@@ -292,6 +312,10 @@ interface GameStore {
   setDangerMode: (enabled: boolean) => void;
   /** Mutes or unmutes the sound effects, and remembers the choice. */
   setSoundEnabled: (enabled: boolean) => void;
+  /** Sets how much unprompted advice the coach gives, and remembers it. */
+  setTipLevel: (level: TipLevel) => void;
+  /** Dismisses the current tip until the position changes. */
+  dismissTip: () => void;
   /** Anchors the rating estimate to a value the player supplies. */
   setRatingManually: (elo: number) => void;
   /** Discards the rating estimate and its game counters. */
@@ -368,14 +392,37 @@ export const useGameStore = create<GameStore>((set, get) => {
     });
   };
 
-  /** Refreshes the sidebar briefing from the latest analysis. */
+  /** Refreshes the sidebar briefing and the pop-up advice from the latest analysis. */
   const refreshBriefing = () => {
     const { playerColor, analysis, coachEnabled } = get();
     if (!coachEnabled) {
-      set({ briefing: null });
+      set({ briefing: null, tip: null });
       return;
     }
-    set({ briefing: buildBriefing(game.fen(), playerCode(playerColor), analysis) });
+
+    const briefing = buildBriefing(game.fen(), playerCode(playerColor), analysis);
+    set({ briefing, tip: chooseTip(briefing, analysis) });
+  };
+
+  /**
+   * Decides whether to interrupt with a tip, and with which one.
+   *
+   * Two filters beyond the level itself. A tip is withheld while the game is
+   * paused or a takeback is being browsed, because it would be talking about a
+   * position the player is not in. And the same advice is never given twice in a
+   * row: a coach who repeats "you have not castled" every single move stops being
+   * read after the second time, which costs more than the tip is worth.
+   */
+  const chooseTip = (briefing: PositionBriefing, analysis: PositionAnalysis | null) => {
+    const { playerColor, tipLevel, isPaused, viewingPly, tip: current } = get();
+    if (tipLevel === 'off' || isPaused || viewingPly !== null) return null;
+
+    const tip = buildTip(game.fen(), playerCode(playerColor), analysis, briefing);
+    if (!tip || !passesLevel(tip.urgency, tipLevel)) return null;
+    if (tip.key === lastTipKey && tip.key !== current?.key) return null;
+
+    lastTipKey = tip.key;
+    return tip;
   };
 
   /**
@@ -798,6 +845,9 @@ export const useGameStore = create<GameStore>((set, get) => {
     generation += 1;
     const token = generation;
     getEngine().stop();
+    // A new board is a fresh conversation: advice held back as repetitive in the
+    // last game should not stay held back in this one.
+    lastTipKey = null;
 
     setup();
 
@@ -816,6 +866,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       hint: null,
       isHintLoading: false,
       review: null,
+      tip: null,
       isOpponentThinking: false,
       isCoachThinking: false,
       engineStatus: 'loading',
@@ -841,6 +892,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     coachEnabled: restored?.snapshot.coachEnabled ?? true,
     dangerMode: restored?.snapshot.dangerMode ?? false,
     soundEnabled: initialSoundEnabled,
+    tipLevel: loadTipLevel(),
 
     startFen: restored?.snapshot.startFen ?? DEFAULT_POSITION,
     fen: game.fen(),
@@ -865,6 +917,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     isHintLoading: false,
     // A finished game's review is rebuilt on demand rather than stored.
     review: null,
+    tip: null,
 
     pendingPromotion: null,
     pendingNewGame: null,
@@ -945,6 +998,8 @@ export const useGameStore = create<GameStore>((set, get) => {
       syncPosition();
       set({
         hint: null,
+        // The advice was about the position you have just left.
+        tip: null,
         pendingPromotion: null,
         // Playing on abandons the taken-back branch, exactly as a text editor
         // drops its redo history once you type something new.
@@ -1140,6 +1195,19 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     setDangerMode(enabled) {
       set({ dangerMode: enabled });
+    },
+
+    setTipLevel(level) {
+      set({ tipLevel: level });
+      saveTipLevel(level);
+      // Applies to the position already on the board rather than only the next
+      // one: turning advice up and being met with silence reads as broken.
+      lastTipKey = null;
+      refreshBriefing();
+    },
+
+    dismissTip() {
+      set({ tip: null });
     },
 
     setSoundEnabled(enabled) {

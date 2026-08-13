@@ -187,6 +187,35 @@ export interface GameReview {
   }>;
 }
 
+/** How loudly the coach volunteers advice before you move. */
+export type TipLevel = 'off' | 'key' | 'balanced' | 'all';
+
+/** How much a piece of advice matters, which is what the level filters on. */
+export type TipUrgency = 'critical' | 'high' | 'medium' | 'low';
+
+/**
+ * One piece of unprompted advice about the position in front of you.
+ *
+ * Shown as a cloud over the board — the same treatment as a blunder, because it
+ * is the same kind of interruption, just before the mistake instead of after it.
+ */
+export interface CoachTip {
+  /**
+   * What the tip is about, not when it was made.
+   *
+   * Identity rather than timestamp, so the coach can notice it is about to
+   * repeat itself and stay quiet instead.
+   */
+  key: string;
+  urgency: TipUrgency;
+  /** Warning, opportunity, or a quiet suggestion — drives the cloud's colour. */
+  tone: 'warn' | 'chance' | 'idea';
+  headline: string;
+  body: string;
+  /** A move to name, when naming one does not give the whole game away. */
+  move: string | null;
+}
+
 /**
  * Time each side has spent on the move, in milliseconds.
  *

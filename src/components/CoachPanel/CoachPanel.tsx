@@ -1,12 +1,45 @@
 import { memo, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { QUALITY_STYLES } from '../../engine/analysis';
+import { TIP_LEVELS } from '../../engine/tips';
 import { useGameStore } from '../../store/gameStore';
-import type { CoachFeedback, Insight } from '../../types';
+import type { CoachFeedback, Insight, TipLevel } from '../../types';
 import { explainSan } from '../../utils/notation';
 import { formatScore } from '../../utils/score';
 import { InfoRow, Panel } from '../ui/Panel';
 import { Switch } from '../ui/Switch';
+
+/**
+ * How much unprompted advice the coach gives.
+ *
+ * A four-step control rather than an on/off switch because the useful answer is
+ * different for different players: one wants to be told when a rook is hanging
+ * and nothing else, another wants a nudge every move. Sits next to Danger as
+ * another child of the coach.
+ */
+function TipLevelControl() {
+  const tipLevel = useGameStore((state) => state.tipLevel);
+  const setTipLevel = useGameStore((state) => state.setTipLevel);
+  const current = TIP_LEVELS.find((level) => level.value === tipLevel) ?? TIP_LEVELS[2];
+
+  return (
+    <label className="flex items-center gap-1.5" title={current.description}>
+      <span className="text-[0.7rem] font-medium text-slate-400">Tips</span>
+      <select
+        value={tipLevel}
+        onChange={(event) => setTipLevel(event.target.value as TipLevel)}
+        aria-label="How much advice the coach volunteers"
+        className="rounded-lg border border-slate-700/70 bg-slate-900 px-1.5 py-0.5 text-[0.7rem] font-semibold text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-400"
+      >
+        {TIP_LEVELS.map((level) => (
+          <option key={level.value} value={level.value}>
+            {level.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 /** Icon shown next to an insight, by tone. */
 const TONE_ICON: Record<Insight['tone'], string> = {
@@ -256,6 +289,7 @@ export const CoachPanel = memo(function CoachPanel() {
                 coach switch in the header: the panel only exists while the coach
                 is on, so the parent/child relationship is structural, not just a
                 visual convention. */}
+            <TipLevelControl />
             <Switch
               checked={dangerMode}
               onChange={setDangerMode}
