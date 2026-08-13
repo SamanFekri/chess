@@ -1,5 +1,5 @@
 import { Chess, DEFAULT_POSITION, validateFen } from 'chess.js';
-import { UNLIMITED_ELO } from '../engine/stockfish';
+import { UNLIMITED_ELO } from '../engine/strength';
 import type { GameResult, PlayerColor } from '../types';
 
 /** Metadata written into an exported PGN. */

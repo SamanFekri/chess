@@ -7,13 +7,14 @@ import {
   MIN_COACH_ELO,
   MIN_OPPONENT_ELO,
   UNLIMITED_ELO,
-} from '../../engine/stockfish';
+} from '../../engine/strength';
 import { useGameStore } from '../../store/gameStore';
 import { MAX_MANUAL_ELO, MIN_MANUAL_ELO } from '../../store/rating';
 import type { PlayerColor } from '../../types';
 import { buildPgn, copyToClipboard, downloadText } from '../../utils/pgn';
 import { GLYPH_TINT, PIECE_GLYPH } from '../../utils/pieceGlyphs';
 import { Button } from '../ui/Button';
+import { EngineSelector } from './EngineSelector';
 import { Panel } from '../ui/Panel';
 
 /** Plain-English description of an opponent strength setting. */
@@ -405,6 +406,8 @@ export const Controls = memo(function Controls() {
       <ColorChoice />
 
       <StrengthSettings />
+
+      <EngineSelector />
 
       {/* Undo, Hint and Flip live in QuickActions under the board, and New game
           lives in the header — all reachable without scrolling to this panel. */}

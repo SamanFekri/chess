@@ -13,13 +13,22 @@ import {
 import {
   coachDepthForElo,
   DEFAULT_COACH_ELO,
-  getEngine,
   strengthForElo,
   MAX_COACH_ELO,
   MIN_COACH_ELO,
   MIN_OPPONENT_ELO,
   UNLIMITED_ELO,
-} from '../engine/stockfish';
+} from '../engine/strength';
+import {
+  activeDefinition,
+  activeEngine,
+  activeSettings,
+  applySettings,
+  fallBackToDefault,
+  selectEngine,
+} from '../engine/manager';
+import { defaultSettingsFor, engineById } from '../engine/catalogue';
+import type { EngineDefinition, EngineSettings } from '../engine/types';
 import type {
   CoachFeedback,
   CoachTip,
@@ -35,7 +44,14 @@ import type {
 import { isBookMove } from '../utils/openings';
 // Aliased because the store exposes an action of the same name that wraps it.
 import { playSound, setSoundEnabled as applyMuteSetting, soundForMove } from '../utils/sound';
-import { loadSoundEnabled, loadTipLevel, saveSoundEnabled, saveTipLevel } from './preferences';
+import {
+  loadEngineChoice,
+  loadSoundEnabled,
+  loadTipLevel,
+  saveEngineChoice,
+  saveSoundEnabled,
+  saveTipLevel,
+} from './preferences';
 import { buildTip, passesLevel } from '../engine/tips';
 import { MATE_SCORE, toWhitePov } from '../utils/score';
 import { parseFen, parsePgn } from '../utils/pgn';
@@ -84,9 +100,15 @@ let generation = 0;
  */
 let lastTipKey: string | null = null;
 
-/** Current coach search depth, from the `coachElo` setting. */
-function coachDepth(state: { coachElo: number }): number {
-  return coachDepthForElo(state.coachElo);
+/**
+ * Current coach search depth.
+ *
+ * The coach-strength slider is the normal source, but an explicit depth in the
+ * engine settings wins — that setting exists precisely to override the slider,
+ * and passing the slider's value to the engine anyway would silently ignore it.
+ */
+function coachDepth(state: { coachElo: number; engineSettings: EngineSettings }): number {
+  return state.engineSettings.depth ?? coachDepthForElo(state.coachElo);
 }
 
 /**
@@ -119,6 +141,22 @@ function pauseForThinking(startedAt: number): Promise<void> {
  */
 const initialSoundEnabled = loadSoundEnabled();
 applyMuteSetting(initialSoundEnabled);
+
+/**
+ * The engine to start with, restored from the last visit.
+ *
+ * Applied at module load, the same way the saved game and rating are, so the
+ * first analysis of the session already runs on the chosen engine. An engine
+ * that has been removed from the catalogue, or that this browser cannot run,
+ * resolves to the default with a reason attached.
+ */
+const initialEngine = (() => {
+  const stored = loadEngineChoice();
+  const definition = engineById(stored?.id ?? '');
+  const settings = { ...defaultSettingsFor(definition), ...(stored?.settings ?? {}) };
+  const result = selectEngine(definition.id, settings);
+  return { ...result, settings: activeSettings() };
+})();
 
 /** A clock with both sides on zero and nothing running. */
 function emptyClock(): GameClock {
@@ -209,6 +247,17 @@ interface GameStore {
   // ── Engine ───────────────────────────────────────────────────────────────
   engineStatus: EngineStatus;
   engineError: string | null;
+  /** The engine doing the analysing, chosen by the player. */
+  engineDefinition: EngineDefinition;
+  /** Its tunable settings, already clamped to what that engine accepts. */
+  engineSettings: EngineSettings;
+  /**
+   * Set when the engine in use is not the one that was asked for.
+   *
+   * Either the choice was unavailable in this browser or it failed to start; in
+   * both cases play continues on the default engine and this explains why.
+   */
+  engineFallback: string | null;
   /** Analysis of the current live position. */
   analysis: PositionAnalysis | null;
   isOpponentThinking: boolean;
@@ -314,6 +363,15 @@ interface GameStore {
   setSoundEnabled: (enabled: boolean) => void;
   /** Sets how much unprompted advice the coach gives, and remembers it. */
   setTipLevel: (level: TipLevel) => void;
+  /**
+   * Switches engines mid-session.
+   *
+   * Stops whatever is running, swaps the instance, and re-analyses the position
+   * on the board so the readout matches the engine that is now answering.
+   */
+  setEngine: (id: string) => Promise<void>;
+  /** Changes one engine setting, clamped to the active engine's limits. */
+  setEngineSetting: <K extends keyof EngineSettings>(key: K, value: EngineSettings[K]) => void;
   /** Dismisses the current tip until the position changes. */
   dismissTip: () => void;
   /** Anchors the rating estimate to a value the player supplies. */
@@ -436,9 +494,9 @@ export const useGameStore = create<GameStore>((set, get) => {
       return null;
     }
 
-    const analysis = await getEngine().analyse(fen, {
+    const analysis = await activeEngine().analysePosition(fen, {
       depth: coachDepth(get()),
-      multiPv: 3,
+      multiPv: get().engineSettings.multiPv,
       onProgress: (partial) => {
         // Late `info` lines from a superseded search must not overwrite the
         // current position's evaluation.
@@ -569,7 +627,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         const legal = game.moves({ verbose: true });
         uci = legal.length > 0 ? legal[Math.floor(Math.random() * legal.length)].lan : null;
       } else {
-        uci = await getEngine().chooseMove(fenBefore, get().opponentElo);
+        uci = await activeEngine().getBestMove(fenBefore, get().opponentElo);
       }
 
       await pauseForThinking(startedThinking);
@@ -690,7 +748,10 @@ export const useGameStore = create<GameStore>((set, get) => {
       const before =
         cached && cached.fen === fenBefore
           ? cached
-          : await getEngine().analyse(fenBefore, { depth: coachDepth(get()), multiPv: 3 });
+          : await activeEngine().analysePosition(fenBefore, {
+              depth: coachDepth(get()),
+              multiPv: get().engineSettings.multiPv,
+            });
       if (!isCurrent(token)) return;
 
       set({ isCoachThinking: true, engineStatus: 'thinking' });
@@ -768,7 +829,7 @@ export const useGameStore = create<GameStore>((set, get) => {
   const rebuildTo = async (keep: number) => {
     generation += 1;
     const token = generation;
-    getEngine().stop();
+    activeEngine().stop();
 
     const history = game.history();
     const rebuilt = new Chess(get().startFen);
@@ -807,12 +868,49 @@ export const useGameStore = create<GameStore>((set, get) => {
     await startPosition(token);
   };
 
+  /**
+   * Starts the selected engine, falling back to the default if it will not run.
+   *
+   * An engine that fails here has usually failed to download or to compile, and
+   * retrying it gets the same result — so the choice is swapped for the default
+   * and the reason is kept on screen. The one case with nowhere to go is the
+   * default itself failing, which is reported as a plain engine error.
+   *
+   * @returns Whether an engine is now running.
+   */
+  const bootActiveEngine = async (token: number): Promise<boolean> => {
+    try {
+      await activeEngine().initialize();
+      if (!isCurrent(token)) return false;
+      set({ engineStatus: 'ready', engineError: null });
+      return true;
+    } catch (error) {
+      if (!isCurrent(token)) return false;
+
+      const message =
+        error instanceof Error ? error.message : 'The chess engine could not be started.';
+      const replacement = fallBackToDefault(message);
+
+      if (!replacement) {
+        set({ engineStatus: 'error', engineError: message });
+        return false;
+      }
+
+      set({
+        engineDefinition: replacement,
+        engineSettings: activeSettings(),
+        engineFallback: `${message} Switched to ${replacement.name}.`,
+      });
+      // The default is the last resort, so its own failure is reported rather
+      // than falling back again — which would be an infinite regress.
+      return bootActiveEngine(token);
+    }
+  };
+
   /** Analyses the opening position and lets the engine start if it is White. */
   const startPosition = async (token: number) => {
     try {
-      await getEngine().init();
-      if (!isCurrent(token)) return;
-      set({ engineStatus: 'ready', engineError: null });
+      if (!(await bootActiveEngine(token))) return;
 
       const { playerColor } = get();
       if (game.turn() !== playerCode(playerColor) && !game.isGameOver()) {
@@ -827,10 +925,15 @@ export const useGameStore = create<GameStore>((set, get) => {
       refreshBriefing();
     } catch (error) {
       if (!isCurrent(token)) return;
+      // Whatever went wrong, the UI must not be left mid-search: the status is
+      // what the header spinner and the "analysing…" labels read from.
       set({
         engineStatus: 'error',
         engineError:
           error instanceof Error ? error.message : 'The chess engine could not be started.',
+        isCoachThinking: false,
+        isOpponentThinking: false,
+        isHintLoading: false,
       });
     }
   };
@@ -844,7 +947,7 @@ export const useGameStore = create<GameStore>((set, get) => {
   ) => {
     generation += 1;
     const token = generation;
-    getEngine().stop();
+    activeEngine().stop();
     // A new board is a fresh conversation: advice held back as repetitive in the
     // last game should not stay held back in this one.
     lastTipKey = null;
@@ -907,6 +1010,9 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     engineStatus: 'idle',
     engineError: null,
+    engineDefinition: initialEngine.definition,
+    engineSettings: initialEngine.settings,
+    engineFallback: initialEngine.fallbackReason,
     analysis: null,
     isOpponentThinking: false,
     isCoachThinking: false,
@@ -1059,7 +1165,7 @@ export const useGameStore = create<GameStore>((set, get) => {
 
       generation += 1;
       const token = generation;
-      getEngine().stop();
+      activeEngine().stop();
 
       // Replay whole plies until it is the player's turn again, mirroring how
       // undo takes them back, so undo and redo are exact inverses.
@@ -1121,7 +1227,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     resign() {
       const winner: Color = get().playerColor === 'white' ? 'b' : 'w';
       generation += 1;
-      getEngine().stop();
+      activeEngine().stop();
       finishGame({
         status: 'resignation',
         winner,
@@ -1149,7 +1255,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       set({ isPaused: paused });
 
       if (paused) {
-        getEngine().stop();
+        activeEngine().stop();
         return;
       }
 
@@ -1197,6 +1303,41 @@ export const useGameStore = create<GameStore>((set, get) => {
       set({ dangerMode: enabled });
     },
 
+    async setEngine(id) {
+      const state = get();
+      if (state.engineDefinition.id === id && !state.engineFallback) return;
+
+      // Anything in flight belongs to the outgoing engine, and its results must
+      // not land in the store after the switch.
+      generation += 1;
+      const token = generation;
+      activeEngine().stop();
+
+      const result = selectEngine(id, state.engineSettings);
+      saveEngineChoice(result.definition.id, activeSettings());
+      set({
+        engineDefinition: result.definition,
+        engineSettings: activeSettings(),
+        engineFallback: result.fallbackReason,
+        engineError: null,
+        engineStatus: 'loading',
+        analysis: null,
+        hint: null,
+        isCoachThinking: false,
+        isHintLoading: false,
+      });
+
+      // Re-analyse from scratch: the readout on screen came from the engine that
+      // just went away.
+      await startPosition(token);
+    },
+
+    setEngineSetting(key, value) {
+      const next = applySettings({ ...get().engineSettings, [key]: value });
+      saveEngineChoice(activeDefinition().id, next);
+      set({ engineSettings: next });
+    },
+
     setTipLevel(level) {
       set({ tipLevel: level });
       saveTipLevel(level);
@@ -1224,7 +1365,7 @@ export const useGameStore = create<GameStore>((set, get) => {
 
       if (!enabled) {
         // Abandon any search in flight; nothing is going to read its result.
-        getEngine().stop();
+        activeEngine().stop();
         // An open review survives: those grades were really earned, and closing
         // the report out from under the player would look like a crash.
         set({
@@ -1271,7 +1412,10 @@ export const useGameStore = create<GameStore>((set, get) => {
         const analysis =
           state.analysis && state.analysis.fen === fen
             ? state.analysis
-            : await getEngine().analyse(fen, { depth: coachDepth(get()), multiPv: 3 });
+            : await activeEngine().analysePosition(fen, {
+              depth: coachDepth(get()),
+              multiPv: get().engineSettings.multiPv,
+            });
         if (!isCurrent(token)) return;
 
         set({ hint: buildHint(fen, analysis), isHintLoading: false });
@@ -1281,7 +1425,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     },
 
     enterEditMode() {
-      getEngine().stop();
+      activeEngine().stop();
       set({
         editMode: true,
         editFen: game.fen(),

@@ -7,7 +7,7 @@ import {
   MIN_COACH_ELO,
   MIN_OPPONENT_ELO,
   UNLIMITED_ELO,
-} from '../engine/stockfish';
+} from '../engine/strength';
 import type { CoachFeedback, GameClock, GameResult, PlayedMove, PlayerColor } from '../types';
 import type { RedoEntry } from './gameStore';
 

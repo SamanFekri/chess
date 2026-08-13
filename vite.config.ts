@@ -22,5 +22,18 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    /**
+     * Cross-origin isolation, which the multi-threaded Stockfish build needs
+     * before the browser will hand it a `SharedArrayBuffer`.
+     *
+     * Only the dev server can do this — a static host like GitHub Pages sets no
+     * headers, which is exactly why the single-threaded build is the default and
+     * the threaded one reports itself unavailable there. Safe to enable because
+     * the app loads nothing cross-origin: no CDN, no fonts, no analytics.
+     */
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
   },
 });

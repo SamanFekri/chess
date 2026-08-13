@@ -1,5 +1,5 @@
 import type { GameResult, PlayerColor } from '../types';
-import { strengthForElo } from '../engine/stockfish';
+import { strengthForElo } from '../engine/strength';
 
 /**
  * A persistent Elo estimate for the player, built from finished games.

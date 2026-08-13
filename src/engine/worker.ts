@@ -1,27 +1,27 @@
 /**
- * Owns the Web Worker that Stockfish runs in.
+ * Owns the Web Worker a UCI engine runs in.
  *
- * The Stockfish WASM build we ship *is* a worker script: instantiating it with
+ * The Stockfish WASM builds we ship *are* worker scripts: instantiating one with
  * `new Worker(url)` gives a UCI engine that speaks plain text over
  * `postMessage`. Keeping that detail behind this module means the rest of the
- * app only ever deals in UCI lines, and the analysis code never touches the
- * DOM or worker APIs — which is also what keeps the UI thread free while the
- * engine searches.
+ * app only ever deals in UCI lines, and the analysis code never touches the DOM
+ * or worker APIs — which is also what keeps the UI thread free while the engine
+ * searches.
  */
 
-/** Path to the engine script, relative to the deployed site root. */
-const ENGINE_SCRIPT = 'stockfish/stockfish-18-lite-single.js';
+/** The engine script shipped as the default, relative to the site root. */
+export const DEFAULT_ENGINE_SCRIPT = 'stockfish/stockfish-18-lite-single.js';
 
 /**
- * Resolves the engine URL against the document base.
+ * Resolves an engine script URL against the document base.
  *
  * Vite is configured with `base: './'`, so a build works from any subpath. The
- * engine locates its own `.wasm` sibling by rewriting its script URL, so this
- * has to be a real absolute URL rather than a relative one.
+ * WASM builds locate their own `.wasm` sibling by rewriting this script URL, so
+ * it has to be a real absolute URL rather than a relative one.
  */
-export function resolveEngineUrl(): string {
+export function resolveEngineUrl(script: string = DEFAULT_ENGINE_SCRIPT): string {
   const base = typeof document !== 'undefined' ? document.baseURI : '/';
-  return new URL(ENGINE_SCRIPT, base).href;
+  return new URL(script, base).href;
 }
 
 /** A line-oriented, bidirectional channel to a UCI engine. */
@@ -36,17 +36,21 @@ export interface EngineTransport {
   terminate(): void;
 }
 
+/** Builds a transport. Engines are defined in terms of this, not of Workers. */
+export type TransportFactory = () => EngineTransport;
+
 /**
- * Spawns the engine worker and wraps it in an {@link EngineTransport}.
+ * Spawns an engine worker and wraps it in an {@link EngineTransport}.
  *
+ * @param script Path to the engine script, relative to the site root.
  * @throws If the environment has no Worker support.
  */
-export function createEngineTransport(): EngineTransport {
+export function createEngineTransport(script: string = DEFAULT_ENGINE_SCRIPT): EngineTransport {
   if (typeof Worker === 'undefined') {
     throw new Error('This browser does not support Web Workers.');
   }
 
-  const worker = new Worker(resolveEngineUrl());
+  const worker = new Worker(resolveEngineUrl(script));
   const lineListeners = new Set<(line: string) => void>();
   const errorListeners = new Set<(error: string) => void>();
 

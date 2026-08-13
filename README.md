@@ -6,6 +6,8 @@ move. No backend, no API keys, no accounts — the engine runs locally in a Web 
 ## What it does
 
 - **Play Stockfish** at any strength from 400 Elo to full strength, set with a direct Elo slider.
+- **Choose your engine** — three free, local Stockfish builds, with per-engine settings for depth,
+  thinking time, candidate moves, threads and memory.
 - **Separate coach-strength slider** (1000–3200) controlling how deep the coach looks — shallower
   means faster feedback, deeper means it catches more.
 - **Danger mode** (off by default): pick up a piece and the squares where it could be captured are
@@ -131,22 +133,58 @@ and then locates its own `.wasm` sibling, so it works at any subpath too.
 - **Private repositories** need GitHub Pages available on your plan; otherwise the deploy job
   fails with a Pages-not-enabled error.
 
-## Notes on the engine
+## Choosing an engine
 
-The app ships the **single-threaded lite** Stockfish 18 WASM build, deliberately:
+The **Chess engine** selector in the Game panel picks which engine does the analysing. All three
+options are free, open source, and run entirely in your browser — no position is ever sent
+anywhere, which is what keeps the app free to host.
 
-- **Single-threaded** means no `SharedArrayBuffer`, which means no `COOP`/`COEP` response
-  headers are required. Static hosts such as GitHub Pages cannot set those headers, so a
-  multi-threaded build would fail to start there.
-- **Lite** is a ~7 MB net rather than ~113 MB, which keeps it under GitHub's 100 MB per-file
-  limit and gives a tolerable first load. The browser caches it after that.
+| Engine | What it is | Use it when |
+| --- | --- | --- |
+| **Stockfish 18 Lite** *(default)* | WebAssembly, single-threaded, ~7 MB | Always. Accurate analysis on any device. |
+| **Stockfish 18 Lite (multi-core)** | WebAssembly, multi-threaded, ~7 MB | You self-host with cross-origin isolation headers. Deeper analysis in the same time. |
+| **Stockfish 18 (compatibility)** | Plain JavaScript (asm.js), ~10 MB | WebAssembly is blocked — some locked-down browsers and corporate networks. |
+
+The multi-core build needs `SharedArrayBuffer`, which the browser only grants on a page served
+with `COOP`/`COEP` headers. **GitHub Pages cannot set headers**, so it reports itself unavailable
+there; `npm run dev` does set them, so it works locally. That is also why the single-threaded
+build is the default.
+
+Under **Engine settings** an advanced user can pin the analysis depth, thinking time, number of
+candidate moves, threads and memory. Only the settings the selected engine actually supports are
+shown, and every value is clamped to what that engine accepts. Depth and thinking time default to
+*Automatic*, meaning they follow the two strength sliders.
+
+The choice and its settings are remembered in `localStorage`. If an engine fails to start, the
+app falls back to the default, keeps playing, and says why on screen.
+
+The full (non-lite) NNUE builds are deliberately absent: at ~113 MB each they exceed GitHub's
+100 MB per-file limit and cannot be deployed this way.
+
+### How the engine layer is put together
+
+Everything above the engine — coaching, grading, hints, the review — talks to a `ChessEngine`
+interface (`initialize` / `analysePosition` / `getBestMove` / `getEvaluation` / `stop` /
+`destroy`) and never to a particular engine:
+
+- [`engine/types.ts`](src/engine/types.ts) — the interface, plus each engine's capabilities and
+  the bounds of every setting.
+- [`engine/uci.ts`](src/engine/uci.ts) — one adapter for anything speaking UCI over a worker.
+  Every engine below is this class with a different script and capability set.
+- [`engine/catalogue.ts`](src/engine/catalogue.ts) — the engines themselves, as data. **Adding an
+  engine is adding an entry here**; nothing else in the app knows which engine it is talking to.
+- [`engine/manager.ts`](src/engine/manager.ts) — owns which engine is running, keeps exactly one
+  alive, and handles switching and fallback.
+
+One engine instance lives for the whole session and is never restarted between games; switching
+destroys the old one before starting the new one, so two engines are never resident at once. All
+UCI work is serialised through a queue, since UCI is a single-conversation stateful protocol.
+Start-up and searches both have timeouts, so a wedged engine surfaces as an error rather than a
+spinner that never stops.
 
 The engine binaries are **not committed** — they are copied out of `node_modules` by
 [scripts/sync-stockfish.mjs](scripts/sync-stockfish.mjs) on `predev`/`prebuild`, so a fresh
 `npm ci` in CI reproduces them.
-
-One engine instance lives for the whole session and is never restarted between games. All UCI
-work is serialised through a queue, since UCI is a single-conversation stateful protocol.
 
 ## How the coaching works
 
@@ -224,12 +262,18 @@ src/
 ├── components/     ChessBoard (+ MoveQualityBadge), CoachPanel, CoachBubble, EvaluationBar,
 │                   MoveList, Controls (+ QuickActions), EditPosition, Header, GameReview,
 │                   ui/ (Button, Panel, Switch)
-├── engine/         stockfish.ts (UCI driver), worker.ts (Web Worker transport),
-│                   analysis.ts (move classification, review), coach.ts (plain-English coaching)
-├── hooks/          useBoardInteraction, useEngineBoot, useUndoShortcut
+├── engine/         types.ts (ChessEngine interface), uci.ts (UCI adapter),
+│                   catalogue.ts (the engines, as data), manager.ts (selection + fallback),
+│                   worker.ts (Web Worker transport), strength.ts (Elo → search settings),
+│                   analysis.ts (move classification, review), coach.ts (plain-English coaching),
+│                   tips.ts (unprompted advice)
+├── hooks/          useBoardInteraction, useEngineBoot, useGameClock, useSoundUnlock,
+│                   useUndoShortcut
 ├── store/          gameStore.ts (Zustand; owns the game and orchestrates the engine),
-│                   persistence.ts (localStorage snapshot), rating.ts (Elo estimate)
-├── utils/          chess.ts (board features), score.ts, openings.ts, pgn.ts, platform.ts
+│                   persistence.ts (localStorage snapshot), rating.ts (Elo estimate),
+│                   preferences.ts (engine choice, sound, advice level)
+├── utils/          chess.ts (board features), score.ts, openings.ts, pgn.ts, platform.ts,
+│                   sound.ts (synthesised effects), notation.ts, time.ts
 └── types/          shared types
 ```
 
