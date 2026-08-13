@@ -188,6 +188,34 @@ export interface GameReview {
 }
 
 /**
+ * Colours available when you draw on the board yourself.
+ *
+ * Four is deliberate: enough to separate "my plan" from "their threat" from "the
+ * bit I am unsure about", few enough to pick from a row of swatches on a phone
+ * without a menu.
+ */
+export type DrawColor = 'green' | 'red' | 'blue' | 'yellow';
+
+/** An arrow the player drew. */
+export interface DrawnArrow {
+  from: string;
+  to: string;
+  color: DrawColor;
+}
+
+/** A square the player ringed. */
+export interface DrawnCircle {
+  square: string;
+  color: DrawColor;
+}
+
+/** Everything the player has drawn on the current position. */
+export interface BoardDrawings {
+  arrows: DrawnArrow[];
+  circles: DrawnCircle[];
+}
+
+/**
  * What a drawing on the board means.
  *
  * The role is the vocabulary of the visual explanation: each one gets its own

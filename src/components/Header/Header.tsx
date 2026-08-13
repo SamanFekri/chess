@@ -215,8 +215,8 @@ export function TurnBar() {
   const playerColor = useGameStore((state) => state.playerColor);
   const isPaused = useGameStore((state) => state.isPaused);
   const setPaused = useGameStore((state) => state.setPaused);
-  const explainMode = useGameStore((state) => state.explainMode);
-  const setExplainMode = useGameStore((state) => state.setExplainMode);
+  const drawMode = useGameStore((state) => state.drawMode);
+  const setDrawMode = useGameStore((state) => state.setDrawMode);
 
   /**
    * Material difference in conventional points, from your side.
@@ -283,22 +283,22 @@ export function TurnBar() {
   const isPlayer = turn === playerColor;
 
   /**
-   * Explaining is a halt like pausing, and takes precedence over the paused bar:
-   * "the coach is talking" is the more useful thing to read, and it carries the
-   * same one-tap way back to the game.
+   * Drawing is a halt like pausing, and takes precedence over the paused bar:
+   * "you are drawing" is the more useful thing to read, and it carries the same
+   * one-tap way back to the game.
    */
-  if (explainMode) {
+  if (drawMode) {
     return (
       <div className="flex items-center justify-between gap-2 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs font-semibold ring-1 ring-emerald-400/40">
         <span className="flex min-w-0 items-center gap-2 text-emerald-200" aria-live="polite">
-          <span aria-hidden>🎓</span>
+          <span aria-hidden>✏️</span>
           <span className="truncate">
-            The coach is explaining — the game is stopped
+            Your board — drag to draw an arrow, tap to ring a square
           </span>
         </span>
         <button
           type="button"
-          onClick={() => setExplainMode(false)}
+          onClick={() => setDrawMode(false)}
           className="shrink-0 rounded-lg bg-emerald-400 px-3 py-1 text-xs font-bold text-slate-950 transition-colors hover:bg-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
         >
           ▶ Play on

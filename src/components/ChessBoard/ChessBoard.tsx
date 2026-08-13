@@ -4,6 +4,7 @@ import { Chessboard, defaultArrowOptions } from 'react-chessboard';
 import { useBoardInteraction } from '../../hooks/useBoardInteraction';
 import { useGameStore } from '../../store/gameStore';
 import { CoachBubble } from '../CoachBubble/CoachBubble';
+import { DrawingLayer } from './DrawingLayer';
 import { ExplainOverlay } from './ExplainOverlay';
 import { ROLE_STYLES } from './explainStyles';
 import { MoveQualityAnnouncement, MoveQualityBadge } from './MoveQualityBadge';
@@ -193,6 +194,9 @@ export const ChessBoard = memo(function ChessBoard() {
           <MoveQualityAnnouncement />
           <CoachBubble />
           <ExplainOverlay />
+          {/* Above the badges and the cloud: while you are drawing, the board is
+              a sheet of paper and everything else is underneath it. */}
+          <DrawingLayer />
         </>
       )}
 

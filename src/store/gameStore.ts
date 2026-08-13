@@ -30,8 +30,10 @@ import {
 import { defaultSettingsFor, engineById } from '../engine/catalogue';
 import type { EngineDefinition, EngineSettings } from '../engine/types';
 import type {
+  BoardDrawings,
   CoachFeedback,
   CoachTip,
+  DrawColor,
   Explanation,
   EngineStatus,
   GameClock,
@@ -47,11 +49,11 @@ import { isBookMove } from '../utils/openings';
 import { playSound, setSoundEnabled as applyMuteSetting, soundForMove } from '../utils/sound';
 import {
   loadEngineChoice,
-  loadExplainMode,
+  loadCoachThinking,
   loadSoundEnabled,
   loadTipLevel,
   saveEngineChoice,
-  saveExplainMode,
+  saveCoachThinking,
   saveSoundEnabled,
   saveTipLevel,
 } from './preferences';
@@ -105,13 +107,13 @@ let generation = 0;
 let lastTipKey: string | null = null;
 
 /**
- * Whether the halt on the board is one Explain Mode put there.
+ * Whether the halt on the board is one draw mode put there.
  *
- * Leaving the explanation should hand the game straight back — but not if the
- * player had already paused it themselves before asking for the explanation, in
- * which case un-pausing would be undoing a decision they made.
+ * Putting the pen down should hand the game straight back — but not if the
+ * player had already paused it themselves before picking the pen up, in which
+ * case un-pausing would be undoing a decision they made.
  */
-let pausedByExplain = false;
+let pausedByDrawing = false;
 
 /**
  * Current coach search depth.
@@ -230,12 +232,22 @@ interface GameStore {
    */
   tipLevel: TipLevel;
   /**
-   * Whether the coach draws its reasoning on the board.
+   * Whether the coach draws its own reasoning on the board.
    *
    * A child of {@link coachEnabled}, like {@link dangerMode}: it is the coach
-   * pointing at things, so it only exists while there is a coach.
+   * pointing at things, so it only exists while there is a coach. Purely a
+   * display setting — it never stops the game.
    */
-  explainMode: boolean;
+  showCoachThinking: boolean;
+  /**
+   * Whether the board is yours to draw on.
+   *
+   * This is the one that stops the game: you are marking up a position to think
+   * about it, and a move landing underneath your arrows would leave them
+   * pointing at pieces that have gone. Not persisted — it is a thing you do, not
+   * a setting you keep.
+   */
+  drawMode: boolean;
 
   // ── Position ─────────────────────────────────────────────────────────────
   /**
@@ -302,6 +314,10 @@ interface GameStore {
    * board and the numbers in the sidebar can never disagree.
    */
   explanation: Explanation | null;
+  /** What the player has drawn on the current position. */
+  drawings: BoardDrawings;
+  /** The colour the next arrow or circle is drawn in. */
+  drawColor: DrawColor;
   /** Which step of {@link explanation} is showing. */
   explainStep: number;
   /** Whether the steps are advancing on their own. */
@@ -405,8 +421,18 @@ interface GameStore {
   setEngineSetting: <K extends keyof EngineSettings>(key: K, value: EngineSettings[K]) => void;
   /** Dismisses the current tip until the position changes. */
   dismissTip: () => void;
-  /** Turns the on-board explanation on or off, and remembers the choice. */
-  setExplainMode: (enabled: boolean) => void;
+  /** Shows or hides the coach's own reasoning on the board, and remembers it. */
+  setShowCoachThinking: (enabled: boolean) => void;
+  /** Hands the board over for drawing, stopping the game, or gives it back. */
+  setDrawMode: (enabled: boolean) => void;
+  /** Adds an arrow, or removes it when it is already there. */
+  toggleDrawnArrow: (from: string, to: string) => void;
+  /** Rings a square, or clears the ring when it is already there. */
+  toggleDrawnCircle: (square: string) => void;
+  /** Picks the colour for the next drawing. */
+  setDrawColor: (color: DrawColor) => void;
+  /** Wipes everything the player has drawn. */
+  clearDrawings: () => void;
   /** Jumps to a step of the explanation, clamped to the ones that exist. */
   showExplainStep: (index: number) => void;
   /** Steps forward, stopping playback at the end rather than looping. */
@@ -519,9 +545,9 @@ export const useGameStore = create<GameStore>((set, get) => {
    * back to the beginning while the player is reading step three.
    */
   const refreshExplanation = () => {
-    const { playerColor, analysis, coachEnabled, explainMode, explanation, viewingPly } = get();
+    const { playerColor, analysis, coachEnabled, showCoachThinking, explanation, viewingPly } = get();
 
-    if (!coachEnabled || !explainMode || viewingPly !== null) {
+    if (!coachEnabled || !showCoachThinking || viewingPly !== null) {
       if (explanation) set({ explanation: null, explainStep: 0, explainPlaying: false });
       return;
     }
@@ -1052,6 +1078,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       explanation: null,
       explainStep: 0,
       explainPlaying: false,
+      drawings: { arrows: [], circles: [] },
       isOpponentThinking: false,
       isCoachThinking: false,
       engineStatus: 'loading',
@@ -1078,7 +1105,8 @@ export const useGameStore = create<GameStore>((set, get) => {
     dangerMode: restored?.snapshot.dangerMode ?? false,
     soundEnabled: initialSoundEnabled,
     tipLevel: loadTipLevel(),
-    explainMode: loadExplainMode(),
+    showCoachThinking: loadCoachThinking(),
+    drawMode: false,
 
     startFen: restored?.snapshot.startFen ?? DEFAULT_POSITION,
     fen: game.fen(),
@@ -1110,6 +1138,8 @@ export const useGameStore = create<GameStore>((set, get) => {
     explanation: null,
     explainStep: 0,
     explainPlaying: false,
+    drawings: { arrows: [], circles: [] },
+    drawColor: 'green',
 
     pendingPromotion: null,
     pendingNewGame: null,
@@ -1342,10 +1372,12 @@ export const useGameStore = create<GameStore>((set, get) => {
       // Play resumes, so the lesson is over: the arrows describe the position
       // you were studying, and leaving them up over a live game would be a
       // teacher who kept talking after the game restarted.
-      if (!paused && get().explainMode) {
-        set({ explainMode: false, explanation: null, explainStep: 0, explainPlaying: false });
-        saveExplainMode(false);
-        pausedByExplain = false;
+      // Play resumes, so the drawings go: they describe the position you were
+      // studying, and leaving them over a live game would be scribbles on a
+      // board that has moved on.
+      if (!paused && get().drawMode) {
+        set({ drawMode: false, drawings: { arrows: [], circles: [] } });
+        pausedByDrawing = false;
       }
 
       if (get().isPaused === paused) return;
@@ -1448,30 +1480,79 @@ export const useGameStore = create<GameStore>((set, get) => {
       set({ tip: null });
     },
 
-    setExplainMode(enabled) {
-      set({ explainMode: enabled });
-      saveExplainMode(enabled);
+    setShowCoachThinking(enabled) {
+      set({ showCoachThinking: enabled });
+      saveCoachThinking(enabled);
 
       if (!enabled) {
         set({ explanation: null, explainStep: 0, explainPlaying: false });
-        // Hand the game back, unless it was already stopped before we started.
-        if (pausedByExplain) {
-          pausedByExplain = false;
+        return;
+      }
+
+      // Applies to the position already on the board: switching it on and seeing
+      // nothing until the next move would read as broken.
+      refreshExplanation();
+    },
+
+    setDrawMode(enabled) {
+      if (get().drawMode === enabled) return;
+
+      if (!enabled) {
+        // The drawings belong to the position you were studying; a live game
+        // underneath them is a different board.
+        set({ drawMode: false, drawings: { arrows: [], circles: [] } });
+        if (pausedByDrawing) {
+          pausedByDrawing = false;
           void get().setPaused(false);
         }
         return;
       }
 
-      // Explaining stops the game. It is the same halt as the Pause button
-      // rather than a second kind of block, so there is only ever one answer to
-      // "why will the board not move?" — and the engine does not fire off a
-      // reply in the middle of a sentence.
-      pausedByExplain = !get().isPaused;
-      set({ isPaused: true });
+      // Drawing stops the game. It is the same halt as the Pause button rather
+      // than a second kind of block, so there is only ever one answer to "why
+      // will the board not move?" — and the engine cannot drop a move onto the
+      // board halfway through your arrow.
+      pausedByDrawing = !get().isPaused;
+      set({ drawMode: true, isPaused: true, hint: null });
       activeEngine().stop();
-      // Applies to the position already on the board: switching it on and seeing
-      // nothing until the next move would read as broken.
-      refreshExplanation();
+    },
+
+    toggleDrawnArrow(from, to) {
+      // An arrow to itself is a circle; the drawing layer never sends one, and
+      // this is the guard that keeps a stray one out of the list.
+      if (from === to) return;
+
+      set((state) => {
+        const existing = state.drawings.arrows.findIndex(
+          (arrow) => arrow.from === from && arrow.to === to,
+        );
+        // Drawing the same arrow again removes it — the same gesture undoes
+        // itself, which is how every board-annotation tool behaves.
+        const arrows =
+          existing >= 0
+            ? state.drawings.arrows.filter((_, index) => index !== existing)
+            : [...state.drawings.arrows, { from, to, color: state.drawColor }];
+        return { drawings: { ...state.drawings, arrows } };
+      });
+    },
+
+    toggleDrawnCircle(square) {
+      set((state) => {
+        const existing = state.drawings.circles.findIndex((circle) => circle.square === square);
+        const circles =
+          existing >= 0
+            ? state.drawings.circles.filter((_, index) => index !== existing)
+            : [...state.drawings.circles, { square, color: state.drawColor }];
+        return { drawings: { ...state.drawings, circles } };
+      });
+    },
+
+    setDrawColor(color) {
+      set({ drawColor: color });
+    },
+
+    clearDrawings() {
+      set({ drawings: { arrows: [], circles: [] } });
     },
 
     showExplainStep(index) {

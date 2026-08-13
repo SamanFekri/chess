@@ -30,7 +30,7 @@ export function useGameClock() {
   const editMode = useGameStore((state) => state.editMode);
   // Explain Mode takes the board away, so it stops the clock for the same reason
   // pausing does: you cannot be on the move if you cannot move.
-  const explainMode = useGameStore((state) => state.explainMode);
+  const showCoachThinking = useGameStore((state) => state.showCoachThinking);
   // Move count rather than the FEN: this exists to re-sync exactly when the turn
   // changes, so each side is billed for its own time and not its opponent's.
   const plies = useGameStore((state) => state.sanHistory.length);
@@ -57,7 +57,7 @@ export function useGameClock() {
     };
   }, []);
 
-  const running = status === 'in-progress' && !isPaused && !editMode && !explainMode && onScreen;
+  const running = status === 'in-progress' && !isPaused && !editMode && !showCoachThinking && onScreen;
 
   useEffect(() => {
     // Banks the previous segment and starts one for whoever is to move now. Also

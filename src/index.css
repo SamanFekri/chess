@@ -79,6 +79,36 @@
     border-radius: 9999px;
     background: var(--cloud-bg);
   }
+
+  /*
+   * Indeterminate progress for the coach panel.
+   *
+   * A search has no percentage to report — it deepens until it stops — so the
+   * bar sweeps rather than fills. Held to a hairline under the panel header,
+   * where it cannot push anything around as it appears and disappears.
+   */
+  .coach-progress {
+    animation: coach-sweep 1.1s ease-in-out infinite;
+  }
+
+  @keyframes coach-sweep {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(400%);
+    }
+  }
+
+  /* Honour a system preference for less movement: the dot still pulses the
+     panel's state, so nothing is lost by holding the bar still. */
+  @media (prefers-reduced-motion: reduce) {
+    .coach-progress {
+      animation: none;
+      width: 100%;
+      opacity: 0.5;
+    }
+  }
 }
 
 @layer utilities {

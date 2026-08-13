@@ -260,6 +260,8 @@ export const CoachPanel = memo(function CoachPanel() {
   const isCoachThinking = useGameStore((state) => state.isCoachThinking);
   const dangerMode = useGameStore((state) => state.dangerMode);
   const setDangerMode = useGameStore((state) => state.setDangerMode);
+  const showCoachThinking = useGameStore((state) => state.showCoachThinking);
+  const setShowCoachThinking = useGameStore((state) => state.setShowCoachThinking);
 
   const listRef = useRef<HTMLDivElement>(null);
   const recent = [...feedback].reverse().slice(0, 12);
@@ -276,6 +278,19 @@ export const CoachPanel = memo(function CoachPanel() {
         title={
           <span className="flex items-center gap-2">
             <span aria-hidden>🎓</span> AI Coach
+            {/* A dot rather than the word "analysing": the text sat in the
+                control row and pushed the switches around every time a search
+                started, which is a layout that moves while you are reaching for
+                it. The sentence still exists for screen readers below. */}
+            {isCoachThinking && (
+              <span
+                aria-hidden
+                className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-400"
+              />
+            )}
+            <span className="sr-only" aria-live="polite">
+              {isCoachThinking ? 'Analysing the position' : ''}
+            </span>
           </span>
         }
         // Wraps rather than shrinks: three controls and a status label do not fit
@@ -283,18 +298,19 @@ export const CoachPanel = memo(function CoachPanel() {
         // second row.
         action={
           <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
-            {isCoachThinking && (
-              <span className="text-xs font-medium text-blue-300" aria-live="polite">
-                analysing…
-              </span>
-            )}
-            {/* Tips and Danger live inside the coach panel rather than beside
-                the coach switch in the header: the panel only exists while the
-                coach is on, so the parent/child relationship is structural, not
-                just a visual convention. Explain is not here — it acts on the
-                position in front of you, so it belongs under the board with the
-                other things you reach for mid-move. */}
+            {/* These three are all display settings for the coach, so they live
+                inside its panel: it only exists while the coach is on, which
+                makes the parent/child relationship structural rather than a
+                visual convention. Drawing is not here — it is something you do
+                to a position, so its button is under the board. */}
             <TipLevelControl />
+            <Switch
+              checked={showCoachThinking}
+              onChange={setShowCoachThinking}
+              label="Thinking"
+              description="Show how the coach thinks: its arrows on the board, the line it expects, and the reason for each, one step at a time"
+              labelClassName="text-[0.7rem]"
+            />
             <Switch
               checked={dangerMode}
               onChange={setDangerMode}
@@ -306,9 +322,15 @@ export const CoachPanel = memo(function CoachPanel() {
         }
         bodyClassName="p-0"
       >
+        {/* Indeterminate hairline: the honest signal that the engine is working,
+            in a place where growing and shrinking cannot disturb anything. */}
+        <div className="h-0.5 w-full overflow-hidden bg-transparent" aria-hidden>
+          {isCoachThinking && <div className="coach-progress h-full w-1/3 bg-blue-400/80" />}
+        </div>
+
         <div
           ref={listRef}
-          className="max-h-[min(52vh,32rem)] space-y-2.5 overflow-y-auto overscroll-contain px-4 py-3"
+          className="max-h-[min(52vh,32rem)] space-y-2.5 overflow-y-auto overscroll-contain px-4 pb-3 pt-2"
           aria-live="polite"
         >
           <AnimatePresence initial={false}>

@@ -8,9 +8,11 @@ move. No backend, no API keys, no accounts — the engine runs locally in a Web 
 - **Play Stockfish** at any strength from 400 Elo to full strength, set with a direct Elo slider.
 - **Choose your engine** — three free, local Stockfish builds, with per-engine settings for depth,
   thinking time, candidate moves, threads and memory.
-- **Explain Mode** — stops the game and has the coach draw its thinking on the board: arrows for
-  the move it wants, the line that follows and the threats against you, revealed one step at a
-  time with a sentence for each. Playing on clears the drawings.
+- **Explain Mode** — stop the game and draw your own arrows and circles on the board with a mouse
+  or a finger. Playing on clears them.
+- **Show how the coach thinks** — a separate switch that has the coach draw *its* reasoning:
+  arrows for the move it wants, the line that follows and the threats against you, one step at a
+  time with a sentence for each.
 - **Separate coach-strength slider** (1000–3200) controlling how deep the coach looks — shallower
   means faster feedback, deeper means it catches more.
 - **Danger mode** (off by default): pick up a piece and the squares where it could be captured are
@@ -189,10 +191,28 @@ The engine binaries are **not committed** — they are copied out of `node_modul
 [scripts/sync-stockfish.mjs](scripts/sync-stockfish.mjs) on `predev`/`prebuild`, so a fresh
 `npm ci` in CI reproduces them.
 
-## Explain Mode
+## Explain Mode — your own arrows
 
-Press **🎓 Explain** under the board — next to Pause, because that is what it is — and the coach
-stops only telling you and starts showing you. It builds a short script for the position and plays it out on the board, one idea at a time:
+Press **✏️ Explain** under the board and the game stops and hands you the board:
+
+- **Drag between two squares** to draw an arrow.
+- **Tap a square** to ring it.
+- **Repeat either gesture** to remove it — the same action undoes itself.
+- **Four colours** in the strip under the board, and **Erase** to wipe everything.
+
+Nothing moves while you draw: no piece can be dropped, and the engine will not slide a reply in
+underneath your arrows. Press **Done**, **Resume**, or **▶ Play on** in the bar above the board and
+the drawings are cleared and the game continues — they described the position you were studying,
+not the one you are about to play. A game you had already paused yourself stays paused.
+
+Drawing is built on pointer events rather than the board library's own arrow tool, which is bound
+to the right mouse button and so does not exist on a phone. **This works with a mouse, a finger or
+a stylus.**
+
+## Show how the coach thinks
+
+A separate **Thinking** switch in the coach panel, **off by default**. Turn it on and the coach
+draws *its* reasoning on the board — a short script it plays out one idea at a time:
 
 1. **Where you stand** — material and the evaluation, in the second person.
 2. **What they are threatening** — an arrow from each attacker to the piece it can take.
@@ -216,21 +236,18 @@ phone screen or colour blindness:
 | ⚪ Grey | A second idea worth seeing |
 
 The card above the board carries the sentence and the transport: play/pause, step forward and
-back, replay, and **✕ to wipe the drawings** without leaving the mode. The progress dots are also
-a step picker, so you can jump straight back to "what are they threatening".
+back, replay, and **✕ to wipe the drawings**. The progress dots are also a step picker, so you can
+jump straight back to "what are they threatening".
 
-**Explaining stops the game.** It is the same halt as the Pause button rather than a second kind
-of block, so there is only ever one answer to "why will the board not move?" — and the engine does
-not fire off a reply in the middle of a sentence. Pressing **Done** (or **Resume**, or **▶ Play
-on** in the bar above the board) clears the arrows and hands the game straight back. A game you
-had already paused yourself stays paused, since un-pausing it would undo your own decision.
+Unlike drawing, this **never stops the game** — it is a display setting, so you can leave it on and
+keep playing. The script is rebuilt from the same analysis that feeds the sidebar, so the arrows
+and the numbers can never describe different searches, and it is tied to the FEN it was written
+for. Browsing an earlier move puts the pen down; returning to the live board picks it up again. A
+deepening search of the *same* position leaves your place in the script alone, so the board does
+not snap back to step one while you are reading step three.
 
-The script is rebuilt from the same analysis that feeds the sidebar, so the arrows and the numbers
-can never describe different searches, and it is tied to the FEN it was written for — an
-explanation is never drawn over a position it does not describe. Browsing an earlier move puts the
-pen down; returning to the live board picks it up again. A deepening search of the *same* position
-leaves your place in the script alone, so the board does not snap back to step one while you are
-reading step three.
+The two modes are independent: you can have the coach's arrows up and draw your own on top. Yours
+are cleared when you play on; the coach's are not.
 
 ## How the coaching works
 
