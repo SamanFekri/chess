@@ -11,12 +11,35 @@ import { useGameStore } from '../store/gameStore';
 const SYNC_INTERVAL_MS = 5000;
 
 /**
+ * Whether the clock should be ticking.
+ *
+ * Extracted and exported because this rule is easy to break from a distance —
+ * it once picked up the coach's display switch during a rename and froze the
+ * clock for anyone who turned the coach's arrows on. As a pure function it can
+ * be checked directly.
+ *
+ * Drawing is not listed: it halts the game through `isPaused`, which is the one
+ * authority on whether play is stopped.
+ */
+export function shouldClockRun(state: {
+  status: string;
+  isPaused: boolean;
+  editMode: boolean;
+  onScreen: boolean;
+}): boolean {
+  return (
+    state.status === 'in-progress' && !state.isPaused && !state.editMode && state.onScreen
+  );
+}
+
+/**
  * Runs the game clock.
  *
  * The clock measures time spent thinking about the position, so it stops for
- * everything that means the player is not doing that: a pause, the position
- * editor, Explain Mode, a finished game, and — the one that actually catches
- * people out — a tab switched away from or a phone put to sleep. `visibilitychange` fires the
+ * everything that means the player is not doing that: a pause (which is also
+ * what drawing on the board uses), the position editor, a finished game, and —
+ * the one that actually catches people out — a tab switched away from or a phone
+ * put to sleep. `visibilitychange` fires the
  * moment the page is hidden, which banks the time up to that instant; nothing
  * accrues until it comes back.
  *
@@ -28,9 +51,6 @@ export function useGameClock() {
   const status = useGameStore((state) => state.result.status);
   const isPaused = useGameStore((state) => state.isPaused);
   const editMode = useGameStore((state) => state.editMode);
-  // Explain Mode takes the board away, so it stops the clock for the same reason
-  // pausing does: you cannot be on the move if you cannot move.
-  const showCoachThinking = useGameStore((state) => state.showCoachThinking);
   // Move count rather than the FEN: this exists to re-sync exactly when the turn
   // changes, so each side is billed for its own time and not its opponent's.
   const plies = useGameStore((state) => state.sanHistory.length);
@@ -57,7 +77,7 @@ export function useGameClock() {
     };
   }, []);
 
-  const running = status === 'in-progress' && !isPaused && !editMode && !showCoachThinking && onScreen;
+  const running = shouldClockRun({ status, isPaused, editMode, onScreen });
 
   useEffect(() => {
     // Banks the previous segment and starts one for whoever is to move now. Also

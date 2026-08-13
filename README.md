@@ -293,6 +293,14 @@ always analyses at full *skill*; depth is the only thing that genuinely trades a
 speed. Lower it if feedback feels slow on a phone, raise it to catch deeper tactics — at the very
 bottom it cannot see a two-move tactic and will misgrade moves, which the slider warns about.
 
+## The end of a game
+
+When a game ends the board keeps it to itself for a beat: the result lands, the sound plays and
+the final position — the mate, the piece that finally fell — stays visible for **600 ms** before the
+review appears over it. A full-screen report thrown up the same instant hides exactly the move
+worth seeing. Starting a new game inside that window cancels the report rather than dropping the
+previous game's result onto a fresh board.
+
 ## The rating estimate
 
 The opponent slider is a real `UCI_Elo` figure, so the opponent's strength is a known number. Each finished game is then a rated game against that number, and the standard Elo

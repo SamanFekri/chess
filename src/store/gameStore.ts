@@ -129,6 +129,16 @@ let quietUntilPositionChanges: string | null = null;
 let drawSequence = 0;
 
 /**
+ * How long the finished board is left alone before the review appears.
+ *
+ * The last move of a game is the one worth seeing — the mate, the queen that
+ * finally fell — and a full-screen report thrown over it the same instant hides
+ * exactly that. A beat is enough to watch the piece land and hear the result,
+ * and short enough that it never feels like waiting.
+ */
+const REVIEW_DELAY_MS = 600;
+
+/**
  * Current coach search depth.
  *
  * The coach-strength slider is the normal source, but an explicit depth in the
@@ -698,11 +708,23 @@ export const useGameStore = create<GameStore>((set, get) => {
       result,
       rating: updated,
       ratingApplied: true,
-      review: buildReview(moves, playerCode(playerColor)),
+      // Held back, not skipped — see below.
+      review: null,
       isOpponentThinking: false,
       isCoachThinking: false,
       engineStatus: 'ready',
     });
+
+    // The board keeps the last move to itself for a moment, then the report
+    // arrives. Tied to the generation token so a game started inside that window
+    // does not get the previous game's review dropped on top of it.
+    const built = buildReview(moves, playerCode(playerColor));
+    const token = generation;
+    setTimeout(() => {
+      if (!isCurrent(token)) return;
+      if (get().result.status === 'in-progress') return;
+      set({ review: built });
+    }, REVIEW_DELAY_MS);
   };
 
   /**
