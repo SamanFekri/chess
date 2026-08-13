@@ -8,9 +8,9 @@ move. No backend, no API keys, no accounts — the engine runs locally in a Web 
 - **Play Stockfish** at any strength from 400 Elo to full strength, set with a direct Elo slider.
 - **Choose your engine** — three free, local Stockfish builds, with per-engine settings for depth,
   thinking time, candidate moves, threads and memory.
-- **Explain Mode** — the coach draws its thinking on the board: arrows for the move it wants, the
-  line that follows and the threats against you, revealed one step at a time with a sentence for
-  each. The board becomes a study board while it is on, and you can draw your own arrows too.
+- **Explain Mode** — stops the game and has the coach draw its thinking on the board: arrows for
+  the move it wants, the line that follows and the threats against you, revealed one step at a
+  time with a sentence for each. Playing on clears the drawings.
 - **Separate coach-strength slider** (1000–3200) controlling how deep the coach looks — shallower
   means faster feedback, deeper means it catches more.
 - **Danger mode** (off by default): pick up a piece and the squares where it could be captured are
@@ -191,8 +191,8 @@ The engine binaries are **not committed** — they are copied out of `node_modul
 
 ## Explain Mode
 
-Switch **Explain** on in the coach panel and the coach stops only telling you and starts showing
-you. It builds a short script for the position and plays it out on the board, one idea at a time:
+Press **🎓 Explain** under the board — next to Pause, because that is what it is — and the coach
+stops only telling you and starts showing you. It builds a short script for the position and plays it out on the board, one idea at a time:
 
 1. **Where you stand** — material and the evaluation, in the second person.
 2. **What they are threatening** — an arrow from each attacker to the piece it can take.
@@ -219,14 +219,11 @@ The card above the board carries the sentence and the transport: play/pause, ste
 back, replay, and **✕ to wipe the drawings** without leaving the mode. The progress dots are also
 a step picker, so you can jump straight back to "what are they threatening".
 
-**While Explain Mode is on the board is for studying, not playing.** Moves are refused — pointing
-at a position and playing on it are two different activities, and a move mid-explanation would
-leave the arrows describing a board that is no longer there. Instead you can **draw your own
-arrows** with a right-button drag (desktop only: the board library draws them with the right mouse
-button, and a touch screen has none). Your arrows and the coach's are kept separate, so scribbling
-over an explanation cannot disturb it, and a left click wipes yours without touching the coach's.
-The turn bar above the board says so and carries a **▶ Play on** button that hands the game back.
-The clock stops while you study, for the same reason it stops when the game is paused.
+**Explaining stops the game.** It is the same halt as the Pause button rather than a second kind
+of block, so there is only ever one answer to "why will the board not move?" — and the engine does
+not fire off a reply in the middle of a sentence. Pressing **Done** (or **Resume**, or **▶ Play
+on** in the bar above the board) clears the arrows and hands the game straight back. A game you
+had already paused yourself stays paused, since un-pausing it would undo your own decision.
 
 The script is rebuilt from the same analysis that feeds the sidebar, so the arrows and the numbers
 can never describe different searches, and it is tied to the FEN it was written for — an

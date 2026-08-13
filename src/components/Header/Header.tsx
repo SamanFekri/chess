@@ -283,10 +283,9 @@ export function TurnBar() {
   const isPlayer = turn === playerColor;
 
   /**
-   * Explain Mode blocks moves, so it has to say so where the player looks for
-   * whose turn it is — and offer the way out in the same place, exactly as the
-   * paused bar does. A board that silently ignores a piece being dragged is the
-   * single most confusing thing this app could do.
+   * Explaining is a halt like pausing, and takes precedence over the paused bar:
+   * "the coach is talking" is the more useful thing to read, and it carries the
+   * same one-tap way back to the game.
    */
   if (explainMode) {
     return (
@@ -294,8 +293,7 @@ export function TurnBar() {
         <span className="flex min-w-0 items-center gap-2 text-emerald-200" aria-live="polite">
           <span aria-hidden>🎓</span>
           <span className="truncate">
-            Explaining — the board is for studying
-            <span className="hidden sm:inline">, not playing. Right-drag to draw your own arrows.</span>
+            The coach is explaining — the game is stopped
           </span>
         </span>
         <button

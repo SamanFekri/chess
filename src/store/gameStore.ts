@@ -105,6 +105,15 @@ let generation = 0;
 let lastTipKey: string | null = null;
 
 /**
+ * Whether the halt on the board is one Explain Mode put there.
+ *
+ * Leaving the explanation should hand the game straight back — but not if the
+ * player had already paused it themselves before asking for the explanation, in
+ * which case un-pausing would be undoing a decision they made.
+ */
+let pausedByExplain = false;
+
+/**
  * Current coach search depth.
  *
  * The coach-strength slider is the normal source, but an explicit depth in the
@@ -1162,10 +1171,9 @@ export const useGameStore = create<GameStore>((set, get) => {
     playerMove(from, to, promotion) {
       const state = get();
       if (state.result.status !== 'in-progress') return false;
+      // Explain Mode halts the game through `isPaused`, so this one check keeps
+      // both out.
       if (state.isOpponentThinking || state.isPaused) return false;
-      // Explaining is studying, not playing. Checked here as well as on the
-      // board so every route to a move obeys the same rule.
-      if (state.explainMode) return false;
       if (game.turn() !== playerCode(state.playerColor)) return false;
 
       const fenBefore = game.fen();
@@ -1331,6 +1339,15 @@ export const useGameStore = create<GameStore>((set, get) => {
     },
 
     async setPaused(paused) {
+      // Play resumes, so the lesson is over: the arrows describe the position
+      // you were studying, and leaving them up over a live game would be a
+      // teacher who kept talking after the game restarted.
+      if (!paused && get().explainMode) {
+        set({ explainMode: false, explanation: null, explainStep: 0, explainPlaying: false });
+        saveExplainMode(false);
+        pausedByExplain = false;
+      }
+
       if (get().isPaused === paused) return;
       set({ isPaused: paused });
 
@@ -1434,10 +1451,27 @@ export const useGameStore = create<GameStore>((set, get) => {
     setExplainMode(enabled) {
       set({ explainMode: enabled });
       saveExplainMode(enabled);
+
+      if (!enabled) {
+        set({ explanation: null, explainStep: 0, explainPlaying: false });
+        // Hand the game back, unless it was already stopped before we started.
+        if (pausedByExplain) {
+          pausedByExplain = false;
+          void get().setPaused(false);
+        }
+        return;
+      }
+
+      // Explaining stops the game. It is the same halt as the Pause button
+      // rather than a second kind of block, so there is only ever one answer to
+      // "why will the board not move?" — and the engine does not fire off a
+      // reply in the middle of a sentence.
+      pausedByExplain = !get().isPaused;
+      set({ isPaused: true });
+      activeEngine().stop();
       // Applies to the position already on the board: switching it on and seeing
-      // an empty board until the next move would read as broken.
-      if (enabled) refreshExplanation();
-      else set({ explanation: null, explainStep: 0, explainPlaying: false });
+      // nothing until the next move would read as broken.
+      refreshExplanation();
     },
 
     showExplainStep(index) {

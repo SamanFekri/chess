@@ -260,8 +260,6 @@ export const CoachPanel = memo(function CoachPanel() {
   const isCoachThinking = useGameStore((state) => state.isCoachThinking);
   const dangerMode = useGameStore((state) => state.dangerMode);
   const setDangerMode = useGameStore((state) => state.setDangerMode);
-  const explainMode = useGameStore((state) => state.explainMode);
-  const setExplainMode = useGameStore((state) => state.setExplainMode);
 
   const listRef = useRef<HTMLDivElement>(null);
   const recent = [...feedback].reverse().slice(0, 12);
@@ -290,18 +288,13 @@ export const CoachPanel = memo(function CoachPanel() {
                 analysing…
               </span>
             )}
-            {/* Tips, Explain and Danger all live inside the coach panel rather
-                than beside the coach switch in the header: the panel only exists
-                while the coach is on, so the parent/child relationship is
-                structural, not just a visual convention. */}
+            {/* Tips and Danger live inside the coach panel rather than beside
+                the coach switch in the header: the panel only exists while the
+                coach is on, so the parent/child relationship is structural, not
+                just a visual convention. Explain is not here — it acts on the
+                position in front of you, so it belongs under the board with the
+                other things you reach for mid-move. */}
             <TipLevelControl />
-            <Switch
-              checked={explainMode}
-              onChange={setExplainMode}
-              label="Explain"
-              description="Let the coach draw its thinking on the board — arrows, marked squares, one idea at a time"
-              labelClassName="text-[0.7rem]"
-            />
             <Switch
               checked={dangerMode}
               onChange={setDangerMode}

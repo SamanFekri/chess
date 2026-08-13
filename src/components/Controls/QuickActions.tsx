@@ -38,6 +38,8 @@ export const QuickActions = memo(function QuickActions() {
   const fen = useGameStore((state) => state.fen);
   const playerColor = useGameStore((state) => state.playerColor);
   const coachEnabled = useGameStore((state) => state.coachEnabled);
+  const explainMode = useGameStore((state) => state.explainMode);
+  const setExplainMode = useGameStore((state) => state.setExplainMode);
 
   const isPlayerTurn =
     result.status === 'in-progress' &&
@@ -102,10 +104,31 @@ export const QuickActions = memo(function QuickActions() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className={`grid gap-2 ${coachEnabled ? 'grid-cols-3' : 'grid-cols-2'}`}>
         <Button variant="primary" onClick={() => void requestNewGame()} className="min-h-12">
           <NewGameIcon /> New game
         </Button>
+
+        {/* Next to Pause, because that is what it is: Explain stops the game and
+            has the coach talk you through the position. Under the board rather
+            than in the coach panel — you reach for it while looking at a
+            position, not while changing settings. */}
+        {coachEnabled && (
+          <Button
+            variant={explainMode ? 'success' : 'secondary'}
+            onClick={() => setExplainMode(!explainMode)}
+            aria-pressed={explainMode}
+            disabled={!inProgress}
+            title={
+              explainMode
+                ? 'Finish the explanation and play on'
+                : 'Stop the game and have the coach talk you through the position on the board'
+            }
+            className="min-h-12"
+          >
+            <span aria-hidden>🎓</span> {explainMode ? 'Done' : 'Explain'}
+          </Button>
+        )}
 
         {/* A toggle, not a one-shot: flipping the board pauses the game, and this
             button has to show that it is already down when it does. */}
