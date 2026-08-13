@@ -260,6 +260,8 @@ export const CoachPanel = memo(function CoachPanel() {
   const isCoachThinking = useGameStore((state) => state.isCoachThinking);
   const dangerMode = useGameStore((state) => state.dangerMode);
   const setDangerMode = useGameStore((state) => state.setDangerMode);
+  const explainMode = useGameStore((state) => state.explainMode);
+  const setExplainMode = useGameStore((state) => state.setExplainMode);
 
   const listRef = useRef<HTMLDivElement>(null);
   const recent = [...feedback].reverse().slice(0, 12);
@@ -278,18 +280,28 @@ export const CoachPanel = memo(function CoachPanel() {
             <span aria-hidden>🎓</span> AI Coach
           </span>
         }
+        // Wraps rather than shrinks: three controls and a status label do not fit
+        // one line on a narrow sidebar, and a squashed switch is worse than a
+        // second row.
         action={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
             {isCoachThinking && (
               <span className="text-xs font-medium text-blue-300" aria-live="polite">
                 analysing…
               </span>
             )}
-            {/* Danger mode lives inside the coach panel rather than beside the
-                coach switch in the header: the panel only exists while the coach
-                is on, so the parent/child relationship is structural, not just a
-                visual convention. */}
+            {/* Tips, Explain and Danger all live inside the coach panel rather
+                than beside the coach switch in the header: the panel only exists
+                while the coach is on, so the parent/child relationship is
+                structural, not just a visual convention. */}
             <TipLevelControl />
+            <Switch
+              checked={explainMode}
+              onChange={setExplainMode}
+              label="Explain"
+              description="Let the coach draw its thinking on the board — arrows, marked squares, one idea at a time"
+              labelClassName="text-[0.7rem]"
+            />
             <Switch
               checked={dangerMode}
               onChange={setDangerMode}

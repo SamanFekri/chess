@@ -32,6 +32,7 @@ import type { EngineDefinition, EngineSettings } from '../engine/types';
 import type {
   CoachFeedback,
   CoachTip,
+  Explanation,
   EngineStatus,
   GameClock,
   GameResult,
@@ -46,13 +47,16 @@ import { isBookMove } from '../utils/openings';
 import { playSound, setSoundEnabled as applyMuteSetting, soundForMove } from '../utils/sound';
 import {
   loadEngineChoice,
+  loadExplainMode,
   loadSoundEnabled,
   loadTipLevel,
   saveEngineChoice,
+  saveExplainMode,
   saveSoundEnabled,
   saveTipLevel,
 } from './preferences';
 import { buildTip, passesLevel } from '../engine/tips';
+import { buildExplanation } from '../engine/explain';
 import { MATE_SCORE, toWhitePov } from '../utils/score';
 import { parseFen, parsePgn } from '../utils/pgn';
 import { clearGame, loadGame, saveGame } from './persistence';
@@ -216,6 +220,13 @@ interface GameStore {
    * moves. A child of {@link coachEnabled}, like {@link dangerMode}.
    */
   tipLevel: TipLevel;
+  /**
+   * Whether the coach draws its reasoning on the board.
+   *
+   * A child of {@link coachEnabled}, like {@link dangerMode}: it is the coach
+   * pointing at things, so it only exists while there is a coach.
+   */
+  explainMode: boolean;
 
   // ── Position ─────────────────────────────────────────────────────────────
   /**
@@ -275,6 +286,17 @@ interface GameStore {
    * Distinct from {@link feedback}, which is always about a move already played.
    */
   tip: CoachTip | null;
+  /**
+   * The visual explanation of the position in front of you, or null.
+   *
+   * Rebuilt from the same analysis that feeds the briefing, so the arrows on the
+   * board and the numbers in the sidebar can never disagree.
+   */
+  explanation: Explanation | null;
+  /** Which step of {@link explanation} is showing. */
+  explainStep: number;
+  /** Whether the steps are advancing on their own. */
+  explainPlaying: boolean;
 
   /**
    * A pawn move waiting for the player to choose what it promotes to.
@@ -374,6 +396,20 @@ interface GameStore {
   setEngineSetting: <K extends keyof EngineSettings>(key: K, value: EngineSettings[K]) => void;
   /** Dismisses the current tip until the position changes. */
   dismissTip: () => void;
+  /** Turns the on-board explanation on or off, and remembers the choice. */
+  setExplainMode: (enabled: boolean) => void;
+  /** Jumps to a step of the explanation, clamped to the ones that exist. */
+  showExplainStep: (index: number) => void;
+  /** Steps forward, stopping playback at the end rather than looping. */
+  nextExplainStep: () => void;
+  /** Steps back one, and stops the automatic playback. */
+  prevExplainStep: () => void;
+  /** Starts or pauses the automatic step-through. */
+  setExplainPlaying: (playing: boolean) => void;
+  /** Replays the explanation from the first step. */
+  replayExplanation: () => void;
+  /** Wipes the drawings without leaving the mode. */
+  clearExplanation: () => void;
   /** Anchors the rating estimate to a value the player supplies. */
   setRatingManually: (elo: number) => void;
   /** Discards the rating estimate and its game counters. */
@@ -460,6 +496,40 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     const briefing = buildBriefing(game.fen(), playerCode(playerColor), analysis);
     set({ briefing, tip: chooseTip(briefing, analysis) });
+    refreshExplanation();
+  };
+
+  /**
+   * Rebuilds the on-board explanation from the analysis the briefing just used.
+   *
+   * Driven from the same place as the briefing so the arrows and the sidebar can
+   * never describe different searches. The step cursor resets whenever the
+   * explanation is genuinely new — jumping to step four of a script written for a
+   * different position would point at the wrong pieces — but a deepening search
+   * of the *same* position leaves the cursor alone, so the board does not snap
+   * back to the beginning while the player is reading step three.
+   */
+  const refreshExplanation = () => {
+    const { playerColor, analysis, coachEnabled, explainMode, explanation, viewingPly } = get();
+
+    if (!coachEnabled || !explainMode || viewingPly !== null) {
+      if (explanation) set({ explanation: null, explainStep: 0, explainPlaying: false });
+      return;
+    }
+
+    const fen = game.fen();
+    const next = buildExplanation(fen, playerCode(playerColor), analysis);
+    if (!next) {
+      if (explanation) set({ explanation: null, explainStep: 0, explainPlaying: false });
+      return;
+    }
+
+    const samePosition = explanation?.fen === next.fen;
+    set({
+      explanation: next,
+      explainStep: samePosition ? Math.min(get().explainStep, next.steps.length - 1) : 0,
+      explainPlaying: samePosition ? get().explainPlaying : true,
+    });
   };
 
   /**
@@ -970,6 +1040,9 @@ export const useGameStore = create<GameStore>((set, get) => {
       isHintLoading: false,
       review: null,
       tip: null,
+      explanation: null,
+      explainStep: 0,
+      explainPlaying: false,
       isOpponentThinking: false,
       isCoachThinking: false,
       engineStatus: 'loading',
@@ -996,6 +1069,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     dangerMode: restored?.snapshot.dangerMode ?? false,
     soundEnabled: initialSoundEnabled,
     tipLevel: loadTipLevel(),
+    explainMode: loadExplainMode(),
 
     startFen: restored?.snapshot.startFen ?? DEFAULT_POSITION,
     fen: game.fen(),
@@ -1024,6 +1098,9 @@ export const useGameStore = create<GameStore>((set, get) => {
     // A finished game's review is rebuilt on demand rather than stored.
     review: null,
     tip: null,
+    explanation: null,
+    explainStep: 0,
+    explainPlaying: false,
 
     pendingPromotion: null,
     pendingNewGame: null,
@@ -1351,6 +1428,56 @@ export const useGameStore = create<GameStore>((set, get) => {
       set({ tip: null });
     },
 
+    setExplainMode(enabled) {
+      set({ explainMode: enabled });
+      saveExplainMode(enabled);
+      // Applies to the position already on the board: switching it on and seeing
+      // an empty board until the next move would read as broken.
+      if (enabled) refreshExplanation();
+      else set({ explanation: null, explainStep: 0, explainPlaying: false });
+    },
+
+    showExplainStep(index) {
+      const { explanation } = get();
+      if (!explanation) return;
+      const clamped = Math.min(explanation.steps.length - 1, Math.max(0, index));
+      // Choosing a step by hand is a decision to read at your own pace.
+      set({ explainStep: clamped, explainPlaying: false });
+    },
+
+    nextExplainStep() {
+      const { explanation, explainStep } = get();
+      if (!explanation) return;
+
+      if (explainStep >= explanation.steps.length - 1) {
+        // The end is the end: looping a explanation back to step one would make
+        // the board move on its own for as long as the tab is open.
+        set({ explainPlaying: false });
+        return;
+      }
+      set({ explainStep: explainStep + 1 });
+    },
+
+    prevExplainStep() {
+      const { explanation, explainStep } = get();
+      if (!explanation) return;
+      set({ explainStep: Math.max(0, explainStep - 1), explainPlaying: false });
+    },
+
+    setExplainPlaying(playing) {
+      if (!get().explanation) return;
+      set({ explainPlaying: playing });
+    },
+
+    replayExplanation() {
+      if (!get().explanation) return;
+      set({ explainStep: 0, explainPlaying: true });
+    },
+
+    clearExplanation() {
+      set({ explanation: null, explainStep: 0, explainPlaying: false });
+    },
+
     setSoundEnabled(enabled) {
       set({ soundEnabled: enabled });
       applyMuteSetting(enabled);
@@ -1375,6 +1502,13 @@ export const useGameStore = create<GameStore>((set, get) => {
           hint: null,
           isHintLoading: false,
           isCoachThinking: false,
+          // The drawings are the coach pointing at the board. With no coach
+          // there is nobody pointing, and arrows left over the pieces would be
+          // the most confusing thing on screen.
+          explanation: null,
+          explainStep: 0,
+          explainPlaying: false,
+          tip: null,
         });
         return;
       }
@@ -1550,6 +1684,9 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     viewPly(ply) {
       set({ viewingPly: ply });
+      // The drawings describe the live position; on an earlier board they would
+      // point at pieces that have since moved.
+      refreshExplanation();
     },
 
     async importPgn(pgn) {

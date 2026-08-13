@@ -8,6 +8,9 @@ move. No backend, no API keys, no accounts — the engine runs locally in a Web 
 - **Play Stockfish** at any strength from 400 Elo to full strength, set with a direct Elo slider.
 - **Choose your engine** — three free, local Stockfish builds, with per-engine settings for depth,
   thinking time, candidate moves, threads and memory.
+- **Explain Mode** — the coach draws its thinking on the board: arrows for the move it wants, the
+  line that follows and the threats against you, revealed one step at a time with a sentence for
+  each.
 - **Separate coach-strength slider** (1000–3200) controlling how deep the coach looks — shallower
   means faster feedback, deeper means it catches more.
 - **Danger mode** (off by default): pick up a piece and the squares where it could be captured are
@@ -186,6 +189,43 @@ The engine binaries are **not committed** — they are copied out of `node_modul
 [scripts/sync-stockfish.mjs](scripts/sync-stockfish.mjs) on `predev`/`prebuild`, so a fresh
 `npm ci` in CI reproduces them.
 
+## Explain Mode
+
+Switch **Explain** on in the coach panel and the coach stops only telling you and starts showing
+you. It builds a short script for the position and plays it out on the board, one idea at a time:
+
+1. **Where you stand** — material and the evaluation, in the second person.
+2. **What they are threatening** — an arrow from each attacker to the piece it can take.
+3. **What I would play** — the recommended move, with the coach's own reason for it.
+4. **What it does to them** — the piece the move attacks, or the mate it delivers.
+5. **What follows** — the main line, one move per step, arrows building up as they would on a
+   demonstration board.
+6. **The safe option and the alternative** — a defensive move when something is hanging, and the
+   runner-up so the recommendation reads as a choice rather than an order.
+
+Each role has its own colour **and** its own highlight, because colour alone does not survive a
+phone screen or colour blindness:
+
+| | Meaning |
+| --- | --- |
+| 🟢 Green | The move to play |
+| 🔵 Blue | What follows in the main line |
+| 🟡 Amber | A piece you would be attacking |
+| 🔴 Red | What the opponent is threatening |
+| 🟣 Violet | A defensive move — safety rather than advantage |
+| ⚪ Grey | A second idea worth seeing |
+
+The card above the board carries the sentence and the transport: play/pause, step forward and
+back, replay, and **✕ to wipe the drawings** without leaving the mode. The progress dots are also
+a step picker, so you can jump straight back to "what are they threatening".
+
+The script is rebuilt from the same analysis that feeds the sidebar, so the arrows and the numbers
+can never describe different searches, and it is tied to the FEN it was written for — an
+explanation is never drawn over a position it does not describe. Browsing an earlier move puts the
+pen down; returning to the live board picks it up again. A deepening search of the *same* position
+leaves your place in the script alone, so the board does not snap back to step one while you are
+reading step three.
+
 ## How the coaching works
 
 Coaching is generated locally — there is no language model involved.
@@ -266,7 +306,7 @@ src/
 │                   catalogue.ts (the engines, as data), manager.ts (selection + fallback),
 │                   worker.ts (Web Worker transport), strength.ts (Elo → search settings),
 │                   analysis.ts (move classification, review), coach.ts (plain-English coaching),
-│                   tips.ts (unprompted advice)
+│                   tips.ts (unprompted advice), explain.ts (the on-board script)
 ├── hooks/          useBoardInteraction, useEngineBoot, useGameClock, useSoundUnlock,
 │                   useUndoShortcut
 ├── store/          gameStore.ts (Zustand; owns the game and orchestrates the engine),

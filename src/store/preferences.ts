@@ -13,6 +13,7 @@ import type { EngineSettings } from '../engine/types';
 const SOUND_KEY = 'ai-chess-coach:sound';
 const TIP_LEVEL_KEY = 'ai-chess-coach:tips';
 const ENGINE_KEY = 'ai-chess-coach:engine';
+const EXPLAIN_KEY = 'ai-chess-coach:explain';
 
 /** Whether sound is on. Defaults to on: the effects are the feature. */
 export function loadSoundEnabled(): boolean {
@@ -55,6 +56,29 @@ export function loadTipLevel(): TipLevel {
 export function saveTipLevel(level: TipLevel): void {
   try {
     localStorage.setItem(TIP_LEVEL_KEY, level);
+  } catch {
+    /* Nothing to do. */
+  }
+}
+
+/**
+ * Whether the coach draws its reasoning on the board.
+ *
+ * Off by default: arrows over the pieces are a deliberate choice, not something
+ * a first-time player should have to turn off before they can see the board.
+ */
+export function loadExplainMode(): boolean {
+  try {
+    return localStorage.getItem(EXPLAIN_KEY) === 'on';
+  } catch {
+    return false;
+  }
+}
+
+/** Remembers whether the board explanation is on. */
+export function saveExplainMode(enabled: boolean): void {
+  try {
+    localStorage.setItem(EXPLAIN_KEY, enabled ? 'on' : 'off');
   } catch {
     /* Nothing to do. */
   }

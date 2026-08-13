@@ -187,6 +187,62 @@ export interface GameReview {
   }>;
 }
 
+/**
+ * What a drawing on the board means.
+ *
+ * The role is the vocabulary of the visual explanation: each one gets its own
+ * colour *and* its own shape of highlight, so the meaning survives a small
+ * screen and colour blindness alike.
+ */
+export type ExplainRole =
+  /** The move the coach would play. */
+  | 'recommended'
+  /** A follow-up move in the main line. */
+  | 'variation'
+  /** Something the opponent can do to you. */
+  | 'threat'
+  /** A move that makes you safe rather than better. */
+  | 'defence'
+  /** A piece the recommended move attacks. */
+  | 'target'
+  /** A second idea worth seeing. */
+  | 'idea';
+
+/** One arrow drawn between two squares. */
+export interface ExplainArrow {
+  from: string;
+  to: string;
+  role: ExplainRole;
+}
+
+/** One highlighted square, optionally captioned. */
+export interface ExplainMark {
+  square: string;
+  role: ExplainRole;
+  /** Short caption for the legend and for screen readers. */
+  label?: string;
+}
+
+/** One beat of the explanation: a sentence and the drawings that go with it. */
+export interface ExplainStep {
+  id: string;
+  text: string;
+  arrows: ExplainArrow[];
+  marks: ExplainMark[];
+}
+
+/**
+ * A full explanation of one position.
+ *
+ * Tied to the FEN it was built from: an explanation of a position that is no
+ * longer on the board is worse than none, so the board checks before drawing.
+ */
+export interface Explanation {
+  fen: string;
+  title: string;
+  steps: ExplainStep[];
+}
+
 /** How loudly the coach volunteers advice before you move. */
 export type TipLevel = 'off' | 'key' | 'balanced' | 'all';
 

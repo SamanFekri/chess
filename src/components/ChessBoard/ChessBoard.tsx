@@ -4,6 +4,8 @@ import { Chessboard, defaultArrowOptions } from 'react-chessboard';
 import { useBoardInteraction } from '../../hooks/useBoardInteraction';
 import { useGameStore } from '../../store/gameStore';
 import { CoachBubble } from '../CoachBubble/CoachBubble';
+import { ExplainOverlay } from './ExplainOverlay';
+import { ROLE_STYLES } from './explainStyles';
 import { MoveQualityAnnouncement, MoveQualityBadge } from './MoveQualityBadge';
 import { PromotionChooser } from './PromotionChooser';
 
@@ -48,6 +50,8 @@ export const ChessBoard = memo(function ChessBoard() {
   const editSquare = useGameStore((state) => state.editSquare);
   const moveEditPiece = useGameStore((state) => state.moveEditPiece);
   const editPlayerColor = useGameStore((state) => state.editPlayerColor);
+  const explanation = useGameStore((state) => state.explanation);
+  const explainStep = useGameStore((state) => state.explainStep);
 
   /**
    * While editing, the board follows the side being set up rather than the
@@ -78,8 +82,33 @@ export const ChessBoard = memo(function ChessBoard() {
   const { onSquareClick, onPieceDrop, onPieceDrag, squareStyles, dangerNote } =
     useBoardInteraction(interactive);
 
-  /** Arrow pointing out the best move whenever a hint is active. */
+  /**
+   * The step of the explanation currently being drawn.
+   *
+   * Guarded on the FEN as well as the index: an explanation is written for one
+   * position, and drawing a stale one would point at pieces that have moved.
+   */
+  const explainNow = useMemo(() => {
+    if (!explanation || isBrowsing || editMode) return null;
+    if (explanation.fen !== displayFen) return null;
+    return explanation.steps[explainStep] ?? null;
+  }, [explanation, explainStep, isBrowsing, editMode, displayFen]);
+
+  /**
+   * Arrows on the board: the coach's drawings, or the hint arrow.
+   *
+   * Explain Mode wins when both are live — it already includes the recommended
+   * move as its own arrow, and drawing it twice in two greens is just muddier.
+   */
   const arrows = useMemo(() => {
+    if (explainNow) {
+      return explainNow.arrows.map((arrow) => ({
+        startSquare: arrow.from,
+        endSquare: arrow.to,
+        color: ROLE_STYLES[arrow.role].arrow,
+      }));
+    }
+
     if (!hint || isBrowsing) return [];
     return [
       {
@@ -88,7 +117,28 @@ export const ChessBoard = memo(function ChessBoard() {
         color: HINT_ARROW_COLOR,
       },
     ];
-  }, [hint, isBrowsing]);
+  }, [explainNow, hint, isBrowsing]);
+
+  /** Board highlights, with the explanation's marks layered on top. */
+  const highlights = useMemo(() => {
+    if (isBrowsing || editMode) return {};
+    if (!explainNow) return squareStyles;
+
+    const merged = { ...squareStyles };
+    for (const mark of explainNow.marks) {
+      const style = ROLE_STYLES[mark.role];
+      merged[mark.square] = {
+        ...merged[mark.square],
+        backgroundColor: style.wash,
+        boxShadow: style.ring,
+      };
+    }
+    return merged;
+  }, [explainNow, squareStyles, isBrowsing, editMode]);
+
+  // The explanation card owns the top of the board while it is up, so the status
+  // pills drop below it rather than overlapping.
+  const topStrip = explainNow ? 'top-[7.5rem]' : 'top-3';
 
   return (
     <div className="relative w-full" aria-label="Chess board">
@@ -109,7 +159,7 @@ export const ChessBoard = memo(function ChessBoard() {
             : onPieceDrop,
           onPieceDrag: editMode ? undefined : onPieceDrag,
           // Highlights only describe the live position.
-          squareStyles: isBrowsing || editMode ? {} : squareStyles,
+          squareStyles: highlights,
           arrows,
           arrowOptions: ARROW_OPTIONS,
           allowDragging: editMode || interactive,
@@ -138,6 +188,7 @@ export const ChessBoard = memo(function ChessBoard() {
           <MoveQualityBadge />
           <MoveQualityAnnouncement />
           <CoachBubble />
+          <ExplainOverlay />
         </>
       )}
 
@@ -145,7 +196,7 @@ export const ChessBoard = memo(function ChessBoard() {
       <PromotionChooser />
 
       {editMode && (
-        <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-2">
+        <div className={`pointer-events-none absolute inset-x-0 ${topStrip} flex justify-center px-2`}>
           <span className="rounded-full bg-slate-950/85 px-3 py-1 text-center text-xs font-medium text-blue-200 ring-1 ring-blue-400/40">
             Edit mode — tap to place, drag to move, drag off the board to remove
           </span>
@@ -157,7 +208,7 @@ export const ChessBoard = memo(function ChessBoard() {
           top strip with the pills below, which are never up at the same time —
           both require the board to be non-interactive. */}
       {dangerNote && (
-        <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-2">
+        <div className={`pointer-events-none absolute inset-x-0 ${topStrip} flex justify-center px-2`}>
           <span
             className="rounded-full bg-slate-950/85 px-3 py-1 text-center text-xs font-medium text-violet-200 ring-1 ring-violet-400/50"
             aria-live="polite"
@@ -169,7 +220,7 @@ export const ChessBoard = memo(function ChessBoard() {
 
       {/* Sits at the top so it never collides with the verdict cloud below. */}
       {!editMode && isBrowsing && (
-        <div className="pointer-events-none absolute inset-x-0 top-3 flex justify-center px-2">
+        <div className={`pointer-events-none absolute inset-x-0 ${topStrip} flex justify-center px-2`}>
           <span className="rounded-full bg-slate-950/85 px-3 py-1 text-center text-xs font-medium text-amber-200 ring-1 ring-amber-400/40">
             Reviewing an earlier move — board is read-only
           </span>
