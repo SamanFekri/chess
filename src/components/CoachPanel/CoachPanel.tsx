@@ -24,12 +24,12 @@ function TipLevelControl() {
 
   return (
     <label className="flex items-center gap-1.5" title={current.description}>
-      <span className="text-[0.7rem] font-medium text-slate-400">Tips</span>
+      <span className="text-[0.65rem] font-medium text-slate-400">Tips</span>
       <select
         value={tipLevel}
         onChange={(event) => setTipLevel(event.target.value as TipLevel)}
         aria-label="How much advice the coach volunteers"
-        className="rounded-lg border border-slate-700/70 bg-slate-900 px-1.5 py-0.5 text-[0.7rem] font-semibold text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-400"
+        className="rounded-lg border border-slate-700/70 bg-slate-900 px-1 py-0.5 text-[0.65rem] font-semibold text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-400"
       >
         {TIP_LEVELS.map((level) => (
           <option key={level.value} value={level.value}>
@@ -297,7 +297,7 @@ export const CoachPanel = memo(function CoachPanel() {
         // one line on a narrow sidebar, and a squashed switch is worse than a
         // second row.
         action={
-          <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+          <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5">
             {/* These three are all display settings for the coach, so they live
                 inside its panel: it only exists while the coach is on, which
                 makes the parent/child relationship structural rather than a
@@ -309,14 +309,16 @@ export const CoachPanel = memo(function CoachPanel() {
               onChange={setShowCoachThinking}
               label="Thinking"
               description="Show how the coach thinks: its arrows on the board, the line it expects, and the reason for each, one step at a time"
-              labelClassName="text-[0.7rem]"
+              labelClassName="text-[0.65rem]"
+              size="sm"
             />
             <Switch
               checked={dangerMode}
               onChange={setDangerMode}
               label="Danger"
               description="Mark the moves that lose material: ⚠ the piece you picked up can be taken there, ⊕ moving there costs you a piece elsewhere"
-              labelClassName="text-[0.7rem]"
+              labelClassName="text-[0.65rem]"
+              size="sm"
             />
           </div>
         }

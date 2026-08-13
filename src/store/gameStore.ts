@@ -116,6 +116,16 @@ let lastTipKey: string | null = null;
 let pausedByDrawing = false;
 
 /**
+ * A position the coach has been told to stay quiet about.
+ *
+ * Leaving draw mode clears every arrow on the board — and then hands the game
+ * back, which refreshes the briefing, which would redraw the coach's arrows in
+ * the same tick. This holds it back until the position actually changes, so
+ * "put the pen down" really does leave a clean board.
+ */
+let quietUntilPositionChanges: string | null = null;
+
+/**
  * Current coach search depth.
  *
  * The coach-strength slider is the normal source, but an explicit depth in the
@@ -547,7 +557,18 @@ export const useGameStore = create<GameStore>((set, get) => {
   const refreshExplanation = () => {
     const { playerColor, analysis, coachEnabled, showCoachThinking, explanation, viewingPly } = get();
 
-    if (!coachEnabled || !showCoachThinking || viewingPly !== null) {
+    // Cleared the moment the board moves on, so the silence lasts exactly one
+    // position rather than until something happens to reset it.
+    if (quietUntilPositionChanges !== null && quietUntilPositionChanges !== game.fen()) {
+      quietUntilPositionChanges = null;
+    }
+
+    if (
+      !coachEnabled ||
+      !showCoachThinking ||
+      viewingPly !== null ||
+      quietUntilPositionChanges === game.fen()
+    ) {
       if (explanation) set({ explanation: null, explainStep: 0, explainPlaying: false });
       return;
     }
@@ -959,9 +980,15 @@ export const useGameStore = create<GameStore>((set, get) => {
       isHintLoading: false,
       review: null,
       pendingPromotion: null,
-      isPaused: false,
+      // The halt is deliberately left alone. Taking a move back used to clear it,
+      // which meant an undo while drawing handed the game back and let the engine
+      // answer — the board moving underneath you at the exact moment you asked it
+      // to move backwards.
       isOpponentThinking: false,
       isCoachThinking: false,
+      // The drawings described the position that has just been taken off the
+      // board, so they go with it.
+      drawings: { arrows: [], circles: [] },
       engineStatus: 'loading',
       engineError: null,
       // Rewinding past the end un-finishes the game, so its result must be able
@@ -1376,7 +1403,15 @@ export const useGameStore = create<GameStore>((set, get) => {
       // studying, and leaving them over a live game would be scribbles on a
       // board that has moved on.
       if (!paused && get().drawMode) {
-        set({ drawMode: false, drawings: { arrows: [], circles: [] } });
+        set({
+          drawMode: false,
+          drawings: { arrows: [], circles: [] },
+          hint: null,
+          explanation: null,
+          explainStep: 0,
+          explainPlaying: false,
+        });
+        quietUntilPositionChanges = game.fen();
         pausedByDrawing = false;
       }
 
@@ -1490,7 +1525,9 @@ export const useGameStore = create<GameStore>((set, get) => {
       }
 
       // Applies to the position already on the board: switching it on and seeing
-      // nothing until the next move would read as broken.
+      // nothing until the next move would read as broken. An explicit request
+      // also overrides any silence left over from a drawing session.
+      quietUntilPositionChanges = null;
       refreshExplanation();
     },
 
@@ -1498,9 +1535,19 @@ export const useGameStore = create<GameStore>((set, get) => {
       if (get().drawMode === enabled) return;
 
       if (!enabled) {
-        // The drawings belong to the position you were studying; a live game
-        // underneath them is a different board.
-        set({ drawMode: false, drawings: { arrows: [], circles: [] } });
+        // A clean board on the way out: yours, the hint's and the coach's arrows
+        // all go. The coach draws again after the next move if its switch is
+        // still on — what it must not do is leave the previous position's arrows
+        // lying over a game that has restarted.
+        set({
+          drawMode: false,
+          drawings: { arrows: [], circles: [] },
+          hint: null,
+          explanation: null,
+          explainStep: 0,
+          explainPlaying: false,
+        });
+        quietUntilPositionChanges = game.fen();
         if (pausedByDrawing) {
           pausedByDrawing = false;
           void get().setPaused(false);

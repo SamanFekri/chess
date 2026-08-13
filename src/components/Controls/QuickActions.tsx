@@ -14,11 +14,12 @@ import {
 /**
  * The controls used constantly while playing, docked directly beneath the board.
  *
- * Undo, Redo, Hint, Flip, New game and Pause live here rather than in the
- * settings panel because they are reached on almost every move — on a phone this
- * sits in the thumb zone right under the board, instead of below the move list
- * where it would need a scroll. Anything you only touch between games stays in
- * the Game panel.
+ * Two rows, split by what they act on. The top row is the board — Undo, Redo,
+ * Hint and Explain — and the bottom row is the game: New game, Flip and Pause.
+ * They live here rather than in the settings panel because they are reached on
+ * almost every move; on a phone this sits in the thumb zone right under the
+ * board, instead of below the move list where it would need a scroll. Anything
+ * you only touch between games stays in the Game panel.
  */
 export const QuickActions = memo(function QuickActions() {
   const requestNewGame = useGameStore((state) => state.requestNewGame);
@@ -92,6 +93,29 @@ export const QuickActions = memo(function QuickActions() {
           </Button>
         )}
 
+        {/* Top row with Undo, Redo and Hint because it is a board action, not a
+            game one — and because this is the row people look at. Highlighted
+            rather than grey so it does not disappear into the pair beside it. */}
+        <Button
+          variant={drawMode ? 'success' : 'primary'}
+          onClick={() => setDrawMode(!drawMode)}
+          aria-pressed={drawMode}
+          title={
+            drawMode
+              ? 'Put the pen down and play on — your drawings are cleared'
+              : 'Stop the game and draw on the board: drag between squares for an arrow, tap a square to ring it'
+          }
+          className="min-h-12"
+        >
+          <span aria-hidden>✏️</span> {drawMode ? 'Done' : 'Explain'}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <Button variant="secondary" onClick={() => void requestNewGame()} className="min-h-12">
+          <NewGameIcon /> New game
+        </Button>
+
         {/* Flipping swaps sides — see `flipBoard` in the store. */}
         <Button
           variant="secondary"
@@ -101,30 +125,6 @@ export const QuickActions = memo(function QuickActions() {
           className="min-h-12"
         >
           <FlipIcon /> Flip
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-3 gap-2">
-        <Button variant="primary" onClick={() => void requestNewGame()} className="min-h-12">
-          <NewGameIcon /> New game
-        </Button>
-
-        {/* Next to Pause, because that is what it is: drawing stops the game.
-            Under the board rather than in a settings panel — you reach for it
-            while looking at a position, not while changing settings. */}
-        <Button
-          variant={drawMode ? 'success' : 'secondary'}
-          onClick={() => setDrawMode(!drawMode)}
-          aria-pressed={drawMode}
-          disabled={!inProgress}
-          title={
-            drawMode
-              ? 'Put the pen down and play on — your drawings are cleared'
-              : 'Stop the game and draw on the board: drag between squares for an arrow, tap a square to ring it'
-          }
-          className="min-h-12"
-        >
-          <span aria-hidden>✏️</span> {drawMode ? 'Done' : 'Explain'}
         </Button>
 
         {/* A toggle, not a one-shot: flipping the board pauses the game, and this

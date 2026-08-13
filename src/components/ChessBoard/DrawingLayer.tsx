@@ -1,6 +1,7 @@
 import { memo, useCallback, useRef, useState } from 'react';
-import type { PlayerColor } from '../../types';
 import { useGameStore } from '../../store/gameStore';
+import { BoardArrow } from './BoardArrow';
+import { centreOf, FILES, squareAt } from './boardGeometry';
 import { DRAW_COLORS } from './drawColors';
 
 /**
@@ -12,95 +13,9 @@ import { DRAW_COLORS } from './drawColors';
  * board library's own arrow drawing, which is bound to the right mouse button
  * and therefore does not exist on a phone — and this app is used on phones.
  *
- * Geometry is derived from the overlay's own bounding box, so it needs to know
- * nothing about how the board underneath is laid out beyond its orientation.
+ * Nothing here cares whose turn it is, or whether a move is legal, or whether the
+ * game has finished. It is a pen and a board.
  */
-
-/** Board is always 8×8; the SVG works in a 0–8 coordinate space. */
-const FILES = 8;
-
-/** Square name for a point inside the overlay, or null when outside it. */
-function squareAt(
-  x: number,
-  y: number,
-  rect: DOMRect,
-  orientation: PlayerColor,
-): string | null {
-  if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) return null;
-
-  const column = Math.min(FILES - 1, Math.max(0, Math.floor(((x - rect.left) / rect.width) * FILES)));
-  const row = Math.min(FILES - 1, Math.max(0, Math.floor(((y - rect.top) / rect.height) * FILES)));
-
-  // Row 0 is rank 8 for White at the bottom, and rank 1 when the board is flipped.
-  const file = orientation === 'white' ? column : FILES - 1 - column;
-  const rank = orientation === 'white' ? FILES - row : row + 1;
-  return `${'abcdefgh'[file]}${rank}`;
-}
-
-/** Centre of a square in the SVG's 0–8 space. */
-function centreOf(square: string, orientation: PlayerColor): { x: number; y: number } {
-  const file = square.charCodeAt(0) - 97;
-  const rank = Number(square[1]);
-  const column = orientation === 'white' ? file : FILES - 1 - file;
-  const row = orientation === 'white' ? FILES - rank : rank - 1;
-  return { x: column + 0.5, y: row + 0.5 };
-}
-
-/** One arrow, drawn short of the target square's centre so the head sits on it. */
-function Arrow({
-  from,
-  to,
-  color,
-  orientation,
-  opacity = 0.85,
-}: {
-  from: string;
-  to: string;
-  color: string;
-  orientation: PlayerColor;
-  opacity?: number;
-}) {
-  const start = centreOf(from, orientation);
-  const end = centreOf(to, orientation);
-
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const length = Math.hypot(dx, dy);
-  if (length === 0) return null;
-
-  const ux = dx / length;
-  const uy = dy / length;
-
-  // Pull the shaft back so the arrowhead ends at the square's centre rather
-  // than overshooting it, and start it clear of the piece it comes from.
-  const headLength = 0.34;
-  const tailGap = 0.3;
-  const tail = { x: start.x + ux * tailGap, y: start.y + uy * tailGap };
-  const neck = { x: end.x - ux * headLength, y: end.y - uy * headLength };
-  const half = 0.19;
-
-  return (
-    <g opacity={opacity}>
-      <line
-        x1={tail.x}
-        y1={tail.y}
-        x2={neck.x}
-        y2={neck.y}
-        stroke={color}
-        strokeWidth={0.17}
-        strokeLinecap="round"
-      />
-      <polygon
-        points={[
-          `${end.x},${end.y}`,
-          `${neck.x - uy * half},${neck.y + ux * half}`,
-          `${neck.x + uy * half},${neck.y - ux * half}`,
-        ].join(' ')}
-        fill={color}
-      />
-    </g>
-  );
-}
 
 /** The colour swatches and the eraser, docked under the board. */
 function DrawToolbar() {
@@ -225,7 +140,7 @@ export const DrawingLayer = memo(function DrawingLayer() {
           })}
 
           {drawings.arrows.map((arrow) => (
-            <Arrow
+            <BoardArrow
               key={`a-${arrow.from}${arrow.to}`}
               from={arrow.from}
               to={arrow.to}
@@ -236,7 +151,13 @@ export const DrawingLayer = memo(function DrawingLayer() {
 
           {/* The arrow in progress, following the pointer. */}
           {origin && cursor && origin !== cursor && (
-            <Arrow from={origin} to={cursor} color={activeColor} orientation={orientation} opacity={0.55} />
+            <BoardArrow
+              from={origin}
+              to={cursor}
+              color={activeColor}
+              orientation={orientation}
+              opacity={0.55}
+            />
           )}
           {origin && cursor === origin && (
             <circle

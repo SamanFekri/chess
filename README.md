@@ -201,13 +201,22 @@ Press **✏️ Explain** under the board and the game stops and hands you the bo
 - **Four colours** in the strip under the board, and **Erase** to wipe everything.
 
 Nothing moves while you draw: no piece can be dropped, and the engine will not slide a reply in
-underneath your arrows. Press **Done**, **Resume**, or **▶ Play on** in the bar above the board and
-the drawings are cleared and the game continues — they described the position you were studying,
-not the one you are about to play. A game you had already paused yourself stays paused.
+underneath your arrows — **including after an undo**, which takes moves back without handing the
+game to the engine. Press **Done**, **Resume**, or **▶ Play on** in the bar above the board and the
+board is left completely clean: your arrows, the hint arrow and the coach's arrows all go, because
+they described the position you were studying rather than the one you are about to play. The coach
+draws again after your next move if its switch is still on. A game you had already paused yourself
+stays paused.
 
 Drawing is built on pointer events rather than the board library's own arrow tool, which is bound
 to the right mouse button and so does not exist on a phone. **This works with a mouse, a finger or
-a stylus.**
+a stylus.** Nothing about it is gated: not whose turn it is, not whether a move is legal, not even
+whether the game has finished. It is a pen and a board.
+
+**A knight's arrow bends.** Two squares along the long axis, then one across — because that is the
+move. A straight line from b1 to c3 draws a path no knight can take, and to anyone still learning
+how the pieces move that is not a stylistic choice, it is the arrow teaching the wrong thing. Every
+arrow in the app goes through one renderer, so the coach's arrows and the hint arrow bend too.
 
 ## Show how the coach thinks
 

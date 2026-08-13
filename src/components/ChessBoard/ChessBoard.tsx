@@ -1,9 +1,10 @@
 import { memo, useMemo } from 'react';
 import type { Square } from 'chess.js';
-import { Chessboard, defaultArrowOptions } from 'react-chessboard';
+import { Chessboard } from 'react-chessboard';
 import { useBoardInteraction } from '../../hooks/useBoardInteraction';
 import { useGameStore } from '../../store/gameStore';
 import { CoachBubble } from '../CoachBubble/CoachBubble';
+import { CoachArrows } from './CoachArrows';
 import { DrawingLayer } from './DrawingLayer';
 import { ExplainOverlay } from './ExplainOverlay';
 import { ROLE_STYLES } from './explainStyles';
@@ -16,16 +17,6 @@ const DARK_SQUARE = '#4e6f8c';
 
 /** Colour of the hint arrow — the same emerald the coach uses for advice. */
 const HINT_ARROW_COLOR = 'rgba(16, 185, 129, 0.92)';
-
-/**
- * Hint arrows are drawn thicker and more opaque than the library default, since
- * this arrow is the answer to an explicit question rather than a user annotation.
- */
-const ARROW_OPTIONS = {
-  ...defaultArrowOptions,
-  arrowWidthDenominator: 3.4,
-  opacity: 0.95,
-};
 
 /**
  * The chessboard.
@@ -107,8 +98,8 @@ export const ChessBoard = memo(function ChessBoard() {
   const arrows = useMemo(() => {
     if (explainNow) {
       return explainNow.arrows.map((arrow) => ({
-        startSquare: arrow.from,
-        endSquare: arrow.to,
+        from: arrow.from,
+        to: arrow.to,
         color: ROLE_STYLES[arrow.role].arrow,
       }));
     }
@@ -116,8 +107,8 @@ export const ChessBoard = memo(function ChessBoard() {
     if (!hint || isBrowsing) return [];
     return [
       {
-        startSquare: hint.suggestion.uci.slice(0, 2),
-        endSquare: hint.suggestion.uci.slice(2, 4),
+        from: hint.suggestion.uci.slice(0, 2),
+        to: hint.suggestion.uci.slice(2, 4),
         color: HINT_ARROW_COLOR,
       },
     ];
@@ -164,8 +155,6 @@ export const ChessBoard = memo(function ChessBoard() {
           onPieceDrag: editMode ? undefined : onPieceDrag,
           // Highlights only describe the live position.
           squareStyles: highlights,
-          arrows,
-          arrowOptions: ARROW_OPTIONS,
           allowDragging: editMode || interactive,
           // Dragging a piece off the board is how you delete it while editing.
           allowDragOffBoard: editMode,
@@ -192,6 +181,7 @@ export const ChessBoard = memo(function ChessBoard() {
         <>
           <MoveQualityBadge />
           <MoveQualityAnnouncement />
+          <CoachArrows arrows={arrows} />
           <CoachBubble />
           <ExplainOverlay />
           {/* Above the badges and the cloud: while you are drawing, the board is
