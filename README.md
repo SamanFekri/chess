@@ -199,6 +199,8 @@ Press **✏️ Explain** under the board and the game stops and hands you the bo
 - **Tap a square** to ring it.
 - **Repeat either gesture** to remove it — the same action undoes itself.
 - **Four colours** in the strip under the board, and **Erase** to wipe everything.
+- **Undo removes the last thing you drew** — the button reads **Rub out** while there is anything
+  on the board, and only means "take back a move" once the board is clear of your marks.
 
 Nothing moves while you draw: no piece can be dropped, and the engine will not slide a reply in
 underneath your arrows — **including after an undo**, which takes moves back without handing the

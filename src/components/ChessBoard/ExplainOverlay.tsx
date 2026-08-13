@@ -62,7 +62,7 @@ function Legend({ roles }: { roles: string[] }) {
   if (shown.length === 0) return null;
 
   return (
-    <p className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[0.65rem] text-slate-400">
+    <p className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[0.65rem] text-slate-300">
       {shown.map((role) => (
         <span key={role} className="flex items-center gap-1">
           <span
@@ -102,7 +102,16 @@ export const ExplainOverlay = memo(function ExplainOverlay() {
     <div className="pointer-events-none absolute inset-x-0 top-2 z-20 flex justify-center px-2">
       <motion.div
         layout
-        className="pointer-events-auto w-full max-w-[26rem] rounded-xl border border-emerald-400/30 bg-slate-950/92 px-3 py-2 shadow-lg backdrop-blur-sm"
+        /*
+         * Nearly solid, not glass.
+         *
+         * It sits over a board of light and dark squares and pieces, and a
+         * translucent card over that is a card you have to work to read. The
+         * blur stays for the edges; the panel itself is opaque enough to be a
+         * panel, with a bright border and a hard shadow to lift it off the
+         * board underneath.
+         */
+        className="pointer-events-auto w-full max-w-[26rem] rounded-xl border-2 border-emerald-400/70 bg-slate-950/98 px-3 py-2.5 shadow-[0_10px_30px_-6px_rgba(2,6,23,0.95)] ring-1 ring-black/40 backdrop-blur-md"
         role="region"
         aria-label="Coach explanation"
       >
@@ -110,10 +119,10 @@ export const ExplainOverlay = memo(function ExplainOverlay() {
           <span aria-hidden className="text-sm">
             🎓
           </span>
-          <p className="min-w-0 flex-1 truncate text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-emerald-300">
+          <p className="min-w-0 flex-1 truncate text-[0.7rem] font-bold uppercase tracking-[0.08em] text-emerald-300">
             {explanation.title}
           </p>
-          <span className="shrink-0 font-mono text-[0.65rem] tabular-nums text-slate-500">
+          <span className="shrink-0 font-mono text-[0.65rem] tabular-nums text-slate-400">
             {index + 1}/{total}
           </span>
         </div>
@@ -126,7 +135,7 @@ export const ExplainOverlay = memo(function ExplainOverlay() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.18 }}
-            className="mt-1 text-[0.8rem] leading-relaxed text-slate-100"
+            className="mt-1.5 text-[0.82rem] font-medium leading-relaxed text-white"
             aria-live="polite"
           >
             {step.text}

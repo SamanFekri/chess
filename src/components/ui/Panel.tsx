@@ -25,7 +25,9 @@ export function Panel({
     >
       {title && (
         <header className="flex items-center justify-between gap-2 border-b border-slate-800/70 px-4 py-3">
-          <h2 className="text-sm font-semibold tracking-wide text-slate-200">{title}</h2>
+          {/* `min-w-0` so a long title gives way to the controls beside it
+              rather than pushing them onto a second line. */}
+          <h2 className="min-w-0 text-sm font-semibold tracking-wide text-slate-200">{title}</h2>
           {action}
         </header>
       )}

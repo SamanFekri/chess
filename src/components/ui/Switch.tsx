@@ -41,7 +41,7 @@ export function Switch({
       aria-label={description ? `${label}. ${description}` : label}
       onClick={() => onChange(!checked)}
       className={`group inline-flex items-center rounded-xl transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 ${
-        small ? 'min-h-8 gap-1.5 px-0.5' : 'min-h-11 gap-2.5 px-1'
+        small ? 'min-h-8 shrink-0 gap-1 px-0' : 'min-h-11 gap-2.5 px-1'
       }`}
     >
       {/* Compact on phones so the header stays on one line, full size from `sm`. */}

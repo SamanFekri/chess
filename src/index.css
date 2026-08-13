@@ -70,6 +70,11 @@
     /* A slight top-down lift stops the large flat fill from looking like a
        plain box with circles stuck to it. */
     background: linear-gradient(160deg, var(--cloud-bg-top), var(--cloud-bg));
+    /* Fully opaque, over a board of pieces and alternating squares: a
+       see-through card here is a card you have to work to read. */
+    box-shadow:
+      0 0 0 1.5px var(--cloud-glow),
+      0 12px 30px -8px rgba(2, 6, 23, 0.95);
   }
 
   /* Tail dots: pure fill, no border, behind the body. */

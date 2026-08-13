@@ -74,8 +74,8 @@ function Cloud({
       className="coach-cloud absolute bottom-8 left-3 z-20 w-[min(17rem,72%)] cursor-pointer sm:w-[min(19rem,62%)]"
       style={
         {
-          '--cloud-bg': 'rgba(9, 12, 28, 0.97)',
-          '--cloud-bg-top': 'rgba(30, 35, 56, 0.97)',
+          '--cloud-bg': 'rgb(9, 12, 28)',
+          '--cloud-bg-top': 'rgb(30, 35, 56)',
           '--cloud-glow': glow,
         } as React.CSSProperties
       }

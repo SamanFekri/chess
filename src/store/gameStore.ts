@@ -125,6 +125,9 @@ let pausedByDrawing = false;
  */
 let quietUntilPositionChanges: string | null = null;
 
+/** Ticks once per drawing, so undo can find the most recent one. */
+let drawSequence = 0;
+
 /**
  * Current coach search depth.
  *
@@ -1277,6 +1280,30 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     async undoMove() {
       const state = get();
+
+      /*
+       * While you are drawing, undo is about the drawing.
+       *
+       * Pressing it to remove an arrow and having the game jump back two moves
+       * instead is the worst kind of surprise: it changes the position you were
+       * annotating, which is the one thing the mode exists to hold still. Only
+       * once the board is clear of your marks does undo mean the game again.
+       */
+      if (state.drawMode) {
+        const lastArrow = state.drawings.arrows.at(-1);
+        const lastCircle = state.drawings.circles.at(-1);
+
+        if (lastArrow || lastCircle) {
+          const arrowIsNewer = (lastArrow?.seq ?? -1) > (lastCircle?.seq ?? -1);
+          set((current) => ({
+            drawings: arrowIsNewer
+              ? { ...current.drawings, arrows: current.drawings.arrows.slice(0, -1) }
+              : { ...current.drawings, circles: current.drawings.circles.slice(0, -1) },
+          }));
+          return;
+        }
+      }
+
       if (state.sanHistory.length === 0) return;
       // Matches what the Undo button allows, so the keyboard shortcut — which has
       // no disabled state to respect — behaves identically.
@@ -1578,7 +1605,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         const arrows =
           existing >= 0
             ? state.drawings.arrows.filter((_, index) => index !== existing)
-            : [...state.drawings.arrows, { from, to, color: state.drawColor }];
+            : [...state.drawings.arrows, { from, to, color: state.drawColor, seq: (drawSequence += 1) }];
         return { drawings: { ...state.drawings, arrows } };
       });
     },
@@ -1589,7 +1616,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         const circles =
           existing >= 0
             ? state.drawings.circles.filter((_, index) => index !== existing)
-            : [...state.drawings.circles, { square, color: state.drawColor }];
+            : [...state.drawings.circles, { square, color: state.drawColor, seq: (drawSequence += 1) }];
         return { drawings: { ...state.drawings, circles } };
       });
     },

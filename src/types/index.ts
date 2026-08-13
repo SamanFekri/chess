@@ -196,15 +196,26 @@ export interface GameReview {
  */
 export type DrawColor = 'green' | 'red' | 'blue' | 'yellow';
 
+/**
+ * A drawing's place in the order they were made.
+ *
+ * Arrows and rings are kept in separate lists so each can be rendered in its own
+ * layer, which loses the one thing undo needs to know: which of them was drawn
+ * last. This is that answer.
+ */
+interface Drawn {
+  seq: number;
+}
+
 /** An arrow the player drew. */
-export interface DrawnArrow {
+export interface DrawnArrow extends Drawn {
   from: string;
   to: string;
   color: DrawColor;
 }
 
 /** A square the player ringed. */
-export interface DrawnCircle {
+export interface DrawnCircle extends Drawn {
   square: string;
   color: DrawColor;
 }

@@ -41,12 +41,15 @@ export const QuickActions = memo(function QuickActions() {
   const coachEnabled = useGameStore((state) => state.coachEnabled);
   const drawMode = useGameStore((state) => state.drawMode);
   const setDrawMode = useGameStore((state) => state.setDrawMode);
+  const drawings = useGameStore((state) => state.drawings);
 
   const isPlayerTurn =
     result.status === 'in-progress' &&
     (fen.split(' ')[1] === 'b' ? 'black' : 'white') === playerColor;
 
   const inProgress = result.status === 'in-progress';
+  /** Anything drawn on the board that undo would remove before touching moves. */
+  const hasInk = drawMode && (drawings.arrows.length > 0 || drawings.circles.length > 0);
 
   return (
     <div className="space-y-2">
@@ -55,14 +58,21 @@ export const QuickActions = memo(function QuickActions() {
         role="group"
         aria-label="Quick actions"
       >
+        {/* While you are drawing, undo peels off your last arrow or ring — see
+            `undoMove`. The label follows, so the button never lies about what it
+            is about to do. */}
         <Button
           variant="secondary"
           onClick={() => void undoMove()}
-          disabled={moves.length === 0 || isOpponentThinking}
-          title={`Take back your last move (${modifierKeyLabel()}+Z). Press repeatedly to go further back.`}
+          disabled={(moves.length === 0 && !hasInk) || isOpponentThinking}
+          title={
+            hasInk
+              ? `Remove the last thing you drew (${modifierKeyLabel()}+Z). Press again to remove the one before it.`
+              : `Take back your last move (${modifierKeyLabel()}+Z). Press repeatedly to go further back.`
+          }
           className="min-h-12"
         >
-          <UndoIcon /> Undo
+          <UndoIcon /> {hasInk ? 'Rub out' : 'Undo'}
         </Button>
 
         <Button

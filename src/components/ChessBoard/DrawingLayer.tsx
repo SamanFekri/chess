@@ -28,7 +28,7 @@ function DrawToolbar() {
 
   return (
     <div className="pointer-events-auto absolute inset-x-0 bottom-2 z-30 flex justify-center px-2">
-      <div className="flex items-center gap-2 rounded-full border border-slate-700/70 bg-slate-950/90 px-2.5 py-1.5 shadow-lg backdrop-blur-sm">
+      <div className="flex items-center gap-2 rounded-full border-2 border-slate-600/80 bg-slate-950/98 px-2.5 py-1.5 shadow-[0_10px_30px_-6px_rgba(2,6,23,0.95)] backdrop-blur-md">
         {DRAW_COLORS.map((swatch) => (
           <button
             key={swatch.id}
