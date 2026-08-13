@@ -24,12 +24,12 @@ function TipLevelControl() {
 
   return (
     <label className="flex shrink-0 items-center gap-1" title={current.description}>
-      <span className="text-[0.6rem] font-medium text-slate-400">Tips</span>
+      <span className="text-[0.65rem] font-semibold text-slate-300">Tips</span>
       <select
         value={tipLevel}
         onChange={(event) => setTipLevel(event.target.value as TipLevel)}
         aria-label="How much advice the coach volunteers"
-        className="rounded-md border border-slate-700/70 bg-slate-900 px-0.5 py-0 text-[0.6rem] font-semibold text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-400"
+        className="rounded-md border border-slate-600/70 bg-slate-900 px-0.5 py-0 text-[0.65rem] font-semibold text-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-400"
       >
         {TIP_LEVELS.map((level) => (
           <option key={level.value} value={level.value}>
@@ -276,8 +276,10 @@ export const CoachPanel = memo(function CoachPanel() {
     <div className="flex min-h-0 flex-col gap-3">
       <Panel
         title={
+          // No emoji: the controls beside it need the width more than the title
+          // needs decoration, and the panel is unmistakable from its contents.
           <span className="flex items-center gap-2">
-            <span aria-hidden>🎓</span> AI Coach
+            AI Coach
             {/* A dot rather than the word "analysing": the text sat in the
                 control row and pushed the switches around every time a search
                 started, which is a layout that moves while you are reaching for
@@ -311,7 +313,7 @@ export const CoachPanel = memo(function CoachPanel() {
               onChange={setShowCoachThinking}
               label="Thinking"
               description="Show how the coach thinks: its arrows on the board, the line it expects, and the reason for each, one step at a time"
-              labelClassName="text-[0.6rem]"
+              labelClassName="text-[0.65rem]"
               size="sm"
             />
             <Switch
@@ -319,7 +321,7 @@ export const CoachPanel = memo(function CoachPanel() {
               onChange={setDangerMode}
               label="Danger"
               description="Mark the moves that lose material: ⚠ the piece you picked up can be taken there, ⊕ moving there costs you a piece elsewhere"
-              labelClassName="text-[0.6rem]"
+              labelClassName="text-[0.65rem]"
               size="sm"
             />
           </div>

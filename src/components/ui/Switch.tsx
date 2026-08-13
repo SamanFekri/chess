@@ -59,9 +59,15 @@ export function Switch({
           }`}
         />
       </span>
+      {/*
+        * Contrast matters more than usual here: these labels are deliberately
+        * tiny, and slate-400 on the panel's dark surface was legible at full
+        * size and a smudge at 0.65rem. Off is still visibly quieter than on —
+        * the track colour carries most of that anyway.
+        */}
       <span
         className={`font-semibold transition-colors ${
-          checked ? 'text-slate-100' : 'text-slate-400'
+          checked ? 'text-white' : 'text-slate-300'
         } ${labelClassName}`}
       >
         {label}
