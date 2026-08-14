@@ -169,24 +169,48 @@ export const ExplainOverlay = memo(function ExplainOverlay() {
           </ControlButton>
 
           {/* Progress doubles as a step picker: the dots are how you skip back to
-              "what are they threatening" without stepping through the line. */}
+              "what are they threatening" without stepping through the line. The
+              current one also fills over the same span the auto-advance timer
+              counts down, so it reaches full right as the step changes — the bar
+              is the timer, not just a marker of where you are. */}
           <div className="mx-1 flex flex-1 items-center gap-1">
-            {explanation.steps.map((entry, position) => (
-              <button
-                key={entry.id}
-                type="button"
-                onClick={() => useGameStore.getState().showExplainStep(position)}
-                aria-label={`Step ${position + 1}: ${entry.text}`}
-                aria-current={position === index}
-                className={`h-1.5 flex-1 rounded-full transition-colors ${
-                  position === index
-                    ? 'bg-emerald-400'
-                    : position < index
-                      ? 'bg-emerald-400/40'
-                      : 'bg-white/15 hover:bg-white/30'
-                }`}
-              />
-            ))}
+            {explanation.steps.map((entry, position) => {
+              const done = position < index;
+              const current = position === index;
+
+              return (
+                <button
+                  key={entry.id}
+                  type="button"
+                  onClick={() => useGameStore.getState().showExplainStep(position)}
+                  aria-label={`Step ${position + 1}: ${entry.text}`}
+                  aria-current={current}
+                  className={`relative h-1.5 flex-1 overflow-hidden rounded-full transition-colors ${
+                    current
+                      ? 'bg-emerald-400/25'
+                      : done
+                        ? 'bg-emerald-400/40'
+                        : 'bg-white/15 hover:bg-white/30'
+                  }`}
+                >
+                  {current && playing && (
+                    // Remounts on every new `entry.id`, which is what restarts the
+                    // fill at 0% on each step — the same reason `useStepPlayback`'s
+                    // timeout restarts from scratch rather than resuming.
+                    <motion.span
+                      key={entry.id}
+                      initial={{ width: '0%' }}
+                      animate={{ width: '100%' }}
+                      transition={{ duration: STEP_MS / 1000, ease: 'linear' }}
+                      className="absolute inset-y-0 left-0 rounded-full bg-emerald-400"
+                    />
+                  )}
+                  {current && !playing && (
+                    <span className="absolute inset-0 rounded-full bg-emerald-400" />
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           <ControlButton onClick={clear} label="Clear the drawings">
