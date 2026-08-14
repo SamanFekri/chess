@@ -14,22 +14,37 @@ import { LEGEND_ORDER, ROLE_STYLES } from './explainStyles';
  * down rather than covering the top of it.
  */
 
-/** How long each step is left on screen before the next one arrives. */
-const STEP_MS = 5200;
+/** How long a plain one-sentence step is left on screen. */
+const STEP_MS = 3000;
+
+/** Extra time granted per move listed under the sentence. */
+const PER_MOVE_MS = 900;
+
+/**
+ * How long to leave a step up, from how much there is on it.
+ *
+ * A flat dwell has to be set for the longest step, which makes every short one
+ * drag. Scaling it means the one-liners go by quickly and the closing
+ * comparison — a sentence plus two moves with their reasons — still gets read.
+ */
+function dwellFor(step: ExplainStep | undefined): number {
+  return STEP_MS + (step?.moves?.length ?? 0) * PER_MOVE_MS;
+}
 
 /** Advances the script while it is playing. */
 function useStepPlayback() {
   const playing = useGameStore((state) => state.explainPlaying);
-  const step = useGameStore((state) => state.explainStep);
+  const index = useGameStore((state) => state.explainStep);
+  const step = useGameStore((state) => state.explanation?.steps[index]);
   const total = useGameStore((state) => state.explanation?.steps.length ?? 0);
   const next = useGameStore((state) => state.nextExplainStep);
 
   useEffect(() => {
     if (!playing || total === 0) return;
-    const timer = setTimeout(next, STEP_MS);
+    const timer = setTimeout(next, dwellFor(step));
     return () => clearTimeout(timer);
-    // `step` is a dependency so each step gets its own full dwell.
-  }, [playing, step, total, next]);
+    // `index` is a dependency so each step gets its own full dwell.
+  }, [playing, index, step, total, next]);
 }
 
 /** A small square button for the transport row. */
@@ -235,7 +250,7 @@ export const ExplainOverlay = memo(function ExplainOverlay() {
                       key={entry.id}
                       initial={{ width: '0%' }}
                       animate={{ width: '100%' }}
-                      transition={{ duration: STEP_MS / 1000, ease: 'linear' }}
+                      transition={{ duration: dwellFor(entry) / 1000, ease: 'linear' }}
                       className="absolute inset-y-0 left-0 rounded-full bg-emerald-400"
                     />
                   )}
