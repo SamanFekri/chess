@@ -231,8 +231,10 @@ draws *its* reasoning on the board — a short script it plays out one idea at a
 4. **What it does to them** — the piece the move attacks, or the mate it delivers.
 5. **What follows** — the main line, one move per step, arrows building up as they would on a
    demonstration board.
-6. **The safe option and the alternative** — a defensive move when something is hanging, and the
-   runner-up so the recommendation reads as a choice rather than an order.
+6. **The safe option, and the choice restated** — a defensive move when something is hanging, then
+   a closing comparison: the best move again with its reason, next to the runner-up and why it is
+   also good — so the last thing on screen is the whole choice, not just a second option floating
+   with nothing to compare it against.
 
 Each role has its own colour **and** its own highlight, because colour alone does not survive a
 phone screen or colour blindness:

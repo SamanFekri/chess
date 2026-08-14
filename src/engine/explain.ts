@@ -79,6 +79,17 @@ function nameAt(board: Chess, square: Square, possessive: string): string {
 }
 
 /**
+ * A suggestion's reason, stripped down to fit mid-sentence.
+ *
+ * `buildSuggestions` writes reasons as their own sentence — "It keeps the
+ * position solid." — so they read correctly after "e4 is good because". Two call
+ * sites splice one into a sentence of their own, and both need the same trim.
+ */
+function trimReason(reason: string): string {
+  return reason.replace(/^It /, '').replace(/\.$/, '');
+}
+
+/**
  * The opening step: where the game stands, in one sentence.
  *
  * Marks the king when it is the thing under pressure, because "you are worse"
@@ -152,7 +163,7 @@ function recommendationStep(
 
   return step(
     'recommend',
-    `I would play ${suggestion.san} — the ${mover} goes from ${from} to ${to}. It ${suggestion.reason.replace(/^It /, '').replace(/\.$/, '')}.`,
+    `I would play ${suggestion.san} — the ${mover} goes from ${from} to ${to}. It ${trimReason(suggestion.reason)}.`,
     {
       arrows: [{ from, to, role: 'recommended' }],
       marks: [
@@ -251,17 +262,37 @@ function continuationSteps(board: Chess, uciMoves: string[], playerColor: Color)
   return steps;
 }
 
-/** The runner-up move, so the recommendation is a choice and not an order. */
-function alternativeStep(suggestion: { san: string; uci: string; reason: string }): ExplainStep {
-  const from = suggestion.uci.slice(0, 2) as Square;
-  const to = suggestion.uci.slice(2, 4) as Square;
+/**
+ * Closes on a comparison: the best move again, and the runner-up beside it.
+ *
+ * A step that only showed the second-best option would leave the board with one
+ * lone arrow and no anchor to what was actually recommended — you would have to
+ * scroll back to "recommend" to remember what you were comparing it against.
+ * Redrawing the best move here, with its own reason restated, means the last
+ * thing on screen is the full choice: this one is best because X, and this one
+ * is also good because Y.
+ */
+function alternativeStep(
+  best: { san: string; uci: string; reason: string },
+  alternative: { san: string; uci: string; reason: string },
+): ExplainStep {
+  const bestFrom = best.uci.slice(0, 2) as Square;
+  const bestTo = best.uci.slice(2, 4) as Square;
+  const altFrom = alternative.uci.slice(0, 2) as Square;
+  const altTo = alternative.uci.slice(2, 4) as Square;
 
   return step(
     'alternative',
-    `${suggestion.san} is the other good option: it ${suggestion.reason.replace(/^It /, '').replace(/\.$/, '')}.`,
+    `${best.san} is still the best move here — it ${trimReason(best.reason)}. ${alternative.san} is another good option: it ${trimReason(alternative.reason)}.`,
     {
-      arrows: [{ from, to, role: 'idea' }],
-      marks: [{ square: to, role: 'idea' }],
+      arrows: [
+        { from: bestFrom, to: bestTo, role: 'recommended' },
+        { from: altFrom, to: altTo, role: 'idea' },
+      ],
+      marks: [
+        { square: bestTo, role: 'recommended', label: 'Best move' },
+        { square: altTo, role: 'idea', label: 'Also good' },
+      ],
     },
   );
 }
@@ -343,7 +374,7 @@ export function buildExplanation(
   const defence = defenceStep(board, playerColor, best?.uci ?? null);
   if (defence) steps.push(defence);
 
-  if (suggestions[1]) steps.push(alternativeStep(suggestions[1]));
+  if (best && suggestions[1]) steps.push(alternativeStep(best, suggestions[1]));
 
   // One step is a caption, not an explanation — the mode is not worth entering.
   if (steps.length < 2) return null;
