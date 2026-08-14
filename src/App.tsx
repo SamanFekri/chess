@@ -1,4 +1,6 @@
+import { AnimatePresence } from 'framer-motion';
 import { ChessBoard } from './components/ChessBoard/ChessBoard';
+import { ExplainOverlay } from './components/ChessBoard/ExplainOverlay';
 import { CoachPanel } from './components/CoachPanel/CoachPanel';
 import { Controls } from './components/Controls/Controls';
 import { EvaluationBar } from './components/EvaluationBar/EvaluationBar';
@@ -39,6 +41,14 @@ function BoardColumn({ withEvaluation }: { withEvaluation: boolean }) {
             <EvaluationBar orientation="horizontal" />
           </div>
         )}
+
+        {/* Above the board, not over it — a card that describes the position
+            must not be the thing hiding it. Lives here rather than inside
+            ChessBoard so it pushes the board down instead of floating on top
+            of the squares. */}
+        <AnimatePresence>
+          <ExplainOverlay />
+        </AnimatePresence>
 
         <ChessBoard />
 

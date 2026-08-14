@@ -6,7 +6,6 @@ import { useGameStore } from '../../store/gameStore';
 import { CoachBubble } from '../CoachBubble/CoachBubble';
 import { CoachArrows } from './CoachArrows';
 import { DrawingLayer } from './DrawingLayer';
-import { ExplainOverlay } from './ExplainOverlay';
 import { ROLE_STYLES } from './explainStyles';
 import { MoveQualityAnnouncement, MoveQualityBadge } from './MoveQualityBadge';
 import { PromotionChooser } from './PromotionChooser';
@@ -131,10 +130,6 @@ export const ChessBoard = memo(function ChessBoard() {
     return merged;
   }, [explainNow, squareStyles, isBrowsing, editMode]);
 
-  // The explanation card owns the top of the board while it is up, so the status
-  // pills drop below it rather than overlapping.
-  const topStrip = explainNow ? 'top-[7.5rem]' : 'top-3';
-
   return (
     <div className="relative w-full" aria-label="Chess board">
       <Chessboard
@@ -183,7 +178,6 @@ export const ChessBoard = memo(function ChessBoard() {
           <MoveQualityAnnouncement />
           <CoachArrows arrows={arrows} />
           <CoachBubble />
-          <ExplainOverlay />
           {/* Above the badges and the cloud: while you are drawing, the board is
               a sheet of paper and everything else is underneath it. */}
           <DrawingLayer />
@@ -194,7 +188,7 @@ export const ChessBoard = memo(function ChessBoard() {
       <PromotionChooser />
 
       {editMode && (
-        <div className={`pointer-events-none absolute inset-x-0 ${topStrip} flex justify-center px-2`}>
+        <div className={`pointer-events-none absolute inset-x-0 top-3 flex justify-center px-2`}>
           <span className="rounded-full bg-slate-950/85 px-3 py-1 text-center text-xs font-medium text-blue-200 ring-1 ring-blue-400/40">
             Edit mode — tap to place, drag to move, drag off the board to remove
           </span>
@@ -206,7 +200,7 @@ export const ChessBoard = memo(function ChessBoard() {
           top strip with the pills below, which are never up at the same time —
           both require the board to be non-interactive. */}
       {dangerNote && (
-        <div className={`pointer-events-none absolute inset-x-0 ${topStrip} flex justify-center px-2`}>
+        <div className={`pointer-events-none absolute inset-x-0 top-3 flex justify-center px-2`}>
           <span
             className="rounded-full bg-slate-950/85 px-3 py-1 text-center text-xs font-medium text-violet-200 ring-1 ring-violet-400/50"
             aria-live="polite"
@@ -218,7 +212,7 @@ export const ChessBoard = memo(function ChessBoard() {
 
       {/* Sits at the top so it never collides with the verdict cloud below. */}
       {!editMode && isBrowsing && (
-        <div className={`pointer-events-none absolute inset-x-0 ${topStrip} flex justify-center px-2`}>
+        <div className={`pointer-events-none absolute inset-x-0 top-3 flex justify-center px-2`}>
           <span className="rounded-full bg-slate-950/85 px-3 py-1 text-center text-xs font-medium text-amber-200 ring-1 ring-amber-400/40">
             Reviewing an earlier move — board is read-only
           </span>

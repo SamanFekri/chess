@@ -4,12 +4,13 @@ import { useGameStore } from '../../store/gameStore';
 import { LEGEND_ORDER, ROLE_STYLES } from './explainStyles';
 
 /**
- * The teacher's voice-over: the caption strip and transport under the board.
+ * The teacher's voice-over: the caption strip and transport above the board.
  *
- * The arrows are drawn by the board itself; this is the sentence that goes with
- * them and the controls for moving through the script. Kept as an overlay pinned
- * to the top of the board rather than a panel elsewhere, because the whole point
- * is that the words and the thing being pointed at are in the same glance.
+ * The arrows are drawn on the board itself; this is the sentence that goes with
+ * them and the controls for moving through the script. Placed directly above the
+ * board — not floating over it — so the position is never hidden behind the card
+ * that is describing it. It sits in normal document flow and pushes the board
+ * down rather than covering the top of it.
  */
 
 /** How long each step is left on screen before the next one arrives. */
@@ -99,22 +100,23 @@ export const ExplainOverlay = memo(function ExplainOverlay() {
   const roles = [...step.arrows.map((a) => a.role), ...step.marks.map((m) => m.role)];
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-2 z-20 flex justify-center px-2">
-      <motion.div
-        layout
-        /*
-         * Nearly solid, not glass.
-         *
-         * It sits over a board of light and dark squares and pieces, and a
-         * translucent card over that is a card you have to work to read. The
-         * blur stays for the edges; the panel itself is opaque enough to be a
-         * panel, with a bright border and a hard shadow to lift it off the
-         * board underneath.
-         */
-        className="pointer-events-auto w-full max-w-[26rem] rounded-xl border-2 border-emerald-400/70 bg-slate-950/98 px-3 py-2.5 shadow-[0_10px_30px_-6px_rgba(2,6,23,0.95)] ring-1 ring-black/40 backdrop-blur-md"
-        role="region"
-        aria-label="Coach explanation"
-      >
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -6 }}
+      /*
+       * Solid, not glass — and no longer over the board at all.
+       *
+       * This used to float on top of the squares, which meant reading it cost
+       * you the position underneath. It is opaque anyway, kept from the version
+       * where it did sit over the board, since a bright card is still easier to
+       * scan than a muted one even in normal flow.
+       */
+      className="mb-2 w-full rounded-xl border-2 border-emerald-400/70 bg-slate-950/98 px-3 py-2.5 shadow-[0_10px_30px_-6px_rgba(2,6,23,0.95)] ring-1 ring-black/40"
+      role="region"
+      aria-label="Coach explanation"
+    >
         <div className="flex items-center gap-2">
           <span aria-hidden className="text-sm">
             🎓
@@ -191,7 +193,6 @@ export const ExplainOverlay = memo(function ExplainOverlay() {
             ✕
           </ControlButton>
         </div>
-      </motion.div>
-    </div>
+    </motion.div>
   );
 });
