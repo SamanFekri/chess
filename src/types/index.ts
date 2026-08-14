@@ -262,12 +262,31 @@ export interface ExplainMark {
   label?: string;
 }
 
+/**
+ * A named move called out in a step, with the reason it earns the name.
+ *
+ * Structured rather than folded into {@link ExplainStep.text} so a step that
+ * weighs two moves against each other can show them as two things — heading,
+ * move, reason — instead of one sentence the reader has to take apart.
+ */
+export interface ExplainMove {
+  /** What this move is in the comparison, e.g. "Best move". */
+  heading: string;
+  san: string;
+  /** Why it earns that heading, as a phrase that follows "it …". */
+  reason: string;
+  /** Colours it to match its arrow on the board. */
+  role: ExplainRole;
+}
+
 /** One beat of the explanation: a sentence and the drawings that go with it. */
 export interface ExplainStep {
   id: string;
   text: string;
   arrows: ExplainArrow[];
   marks: ExplainMark[];
+  /** Moves to list out beneath the sentence, when the step compares any. */
+  moves?: ExplainMove[];
 }
 
 /**

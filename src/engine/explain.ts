@@ -67,9 +67,15 @@ const THREAT_THRESHOLD_CP = 300;
 function step(
   id: string,
   text: string,
-  visuals: Partial<Pick<ExplainStep, 'arrows' | 'marks'>> = {},
+  visuals: Partial<Pick<ExplainStep, 'arrows' | 'marks' | 'moves'>> = {},
 ): ExplainStep {
-  return { id, text, arrows: visuals.arrows ?? [], marks: visuals.marks ?? [] };
+  return {
+    id,
+    text,
+    arrows: visuals.arrows ?? [],
+    marks: visuals.marks ?? [],
+    ...(visuals.moves ? { moves: visuals.moves } : {}),
+  };
 }
 
 /** "your knight on f6" — how a piece is named when pointed at. */
@@ -281,20 +287,32 @@ function alternativeStep(
   const altFrom = alternative.uci.slice(0, 2) as Square;
   const altTo = alternative.uci.slice(2, 4) as Square;
 
-  return step(
-    'alternative',
-    `${best.san} is still the best move here — it ${trimReason(best.reason)}. ${alternative.san} is another good option: it ${trimReason(alternative.reason)}.`,
-    {
-      arrows: [
-        { from: bestFrom, to: bestTo, role: 'recommended' },
-        { from: altFrom, to: altTo, role: 'idea' },
-      ],
-      marks: [
-        { square: bestTo, role: 'recommended', label: 'Best move' },
-        { square: altTo, role: 'idea', label: 'Also good' },
-      ],
-    },
-  );
+  return step('alternative', 'Two moves worth playing here — the best one, and the other good one.', {
+    arrows: [
+      { from: bestFrom, to: bestTo, role: 'recommended' },
+      { from: altFrom, to: altTo, role: 'idea' },
+    ],
+    marks: [
+      { square: bestTo, role: 'recommended', label: 'Best move' },
+      { square: altTo, role: 'idea', label: 'Also good' },
+    ],
+    // Listed rather than written into the sentence: two moves with two reasons
+    // is a comparison, and a comparison wants two rows, not one paragraph.
+    moves: [
+      {
+        heading: 'Best move',
+        san: best.san,
+        reason: trimReason(best.reason),
+        role: 'recommended',
+      },
+      {
+        heading: 'Another good move',
+        san: alternative.san,
+        reason: trimReason(alternative.reason),
+        role: 'idea',
+      },
+    ],
+  });
 }
 
 /**

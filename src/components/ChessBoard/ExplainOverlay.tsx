@@ -1,5 +1,6 @@
 import { memo, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import type { ExplainStep } from '../../types';
 import { useGameStore } from '../../store/gameStore';
 import { LEGEND_ORDER, ROLE_STYLES } from './explainStyles';
 
@@ -54,6 +55,37 @@ function ControlButton({
     >
       {children}
     </button>
+  );
+}
+
+/**
+ * The moves a step is comparing, one row each.
+ *
+ * Each row is colour-matched to that move's arrow on the board, so "Best move"
+ * in the card and the green arrow on the board are visibly the same thing.
+ */
+function MoveList({ moves }: { moves: NonNullable<ExplainStep['moves']> }) {
+  return (
+    <ul className="mt-2 space-y-1.5">
+      {moves.map((move) => (
+        <li
+          key={`${move.heading}-${move.san}`}
+          className="rounded-lg border-l-2 bg-white/[0.04] py-1 pl-2 pr-2"
+          style={{ borderLeftColor: ROLE_STYLES[move.role].arrow }}
+        >
+          <div className="flex items-baseline gap-1.5">
+            <span
+              className="text-[0.6rem] font-bold uppercase tracking-[0.06em]"
+              style={{ color: ROLE_STYLES[move.role].arrow }}
+            >
+              {move.heading}
+            </span>
+            <span className="font-mono text-[0.8rem] font-bold text-white">{move.san}</span>
+          </div>
+          <p className="text-[0.7rem] leading-snug text-slate-300">It {move.reason}.</p>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -144,6 +176,8 @@ export const ExplainOverlay = memo(function ExplainOverlay() {
           </motion.p>
         </AnimatePresence>
 
+        {step.moves && step.moves.length > 0 && <MoveList moves={step.moves} />}
+
         <Legend roles={roles} />
 
         <div className="mt-1.5 flex items-center gap-1 border-t border-white/10 pt-1.5">
@@ -185,7 +219,7 @@ export const ExplainOverlay = memo(function ExplainOverlay() {
                   onClick={() => useGameStore.getState().showExplainStep(position)}
                   aria-label={`Step ${position + 1}: ${entry.text}`}
                   aria-current={current}
-                  className={`relative h-1.5 flex-1 overflow-hidden rounded-full transition-colors ${
+                  className={`relative h-1 flex-1 overflow-hidden rounded-full transition-colors ${
                     current
                       ? 'bg-emerald-400/25'
                       : done
