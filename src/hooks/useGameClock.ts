@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useGameStore } from '../store/gameStore';
+import { remainingMs, useGameStore } from '../store/gameStore';
 
 /**
  * How often the running clock banks its progress into the store.
@@ -26,9 +26,19 @@ export function shouldClockRun(state: {
   isPaused: boolean;
   editMode: boolean;
   onScreen: boolean;
+  /**
+   * True while a count-down game is waiting for White's first move. As on most
+   * chess servers, nobody's time runs until the game has actually begun, so
+   * settling in at the board does not cost White seconds.
+   */
+  awaitingFirstMove?: boolean;
 }): boolean {
   return (
-    state.status === 'in-progress' && !state.isPaused && !state.editMode && state.onScreen
+    state.status === 'in-progress' &&
+    !state.isPaused &&
+    !state.editMode &&
+    state.onScreen &&
+    !state.awaitingFirstMove
   );
 }
 
@@ -77,7 +87,19 @@ export function useGameClock() {
     };
   }, []);
 
-  const running = shouldClockRun({ status, isPaused, editMode, onScreen });
+  const timeControl = useGameStore((state) => state.timeControl);
+  const checkFlag = useGameStore((state) => state.checkFlag);
+  // Re-read so the flag timer is rescheduled whenever time is banked or credited.
+  const since = useGameStore((state) => state.clock.since);
+  const bonus = useGameStore((state) => state.clockBonus);
+
+  const running = shouldClockRun({
+    status,
+    isPaused,
+    editMode,
+    onScreen,
+    awaitingFirstMove: timeControl !== null && plies === 0,
+  });
 
   useEffect(() => {
     // Banks the previous segment and starts one for whoever is to move now. Also
@@ -93,4 +115,20 @@ export function useGameClock() {
       syncClock(false);
     };
   }, [running, plies, syncClock]);
+
+  /**
+   * The flag: one timer set for the instant the running side reaches zero.
+   *
+   * Rescheduled on every turn change and every bank, so it always measures from
+   * the latest numbers; `checkFlag` re-verifies before ending anything.
+   */
+  useEffect(() => {
+    if (!running || !timeControl || since === null) return;
+    const { clock, clockBonus } = useGameStore.getState();
+    const side = clock.side;
+    if (!side) return;
+    const left = remainingMs(clock, clockBonus, timeControl, side);
+    const id = setTimeout(checkFlag, left + 15);
+    return () => clearTimeout(id);
+  }, [running, timeControl, since, bonus, plies, checkFlag]);
 }

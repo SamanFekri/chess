@@ -1,22 +1,21 @@
 /**
  * Generates every app icon from one SVG description.
  *
- * The mark is a pawn whose head is a speech bubble — a chess piece that talks,
- * which is the app in one shape: you play, and the coach explains in plain
- * English. The spark inside the bubble is the AI. A bright white piece on the
- * brand's blue-to-emerald tile, with a top-left sheen and a glass rim to match
- * the Liquid Glass interface.
+ * The mark is a cute robot that is also a chess piece: a chibi robot built on a
+ * pawn, with a screen face. Flat colours and a sticker outline, no gradients.
+ * Wherever the platform allows transparency the character is the whole icon;
+ * only the iOS home-screen and maskable icons, which must be opaque, sit it on
+ * a single flat colour.
  *
  * Outputs (all committed, since they change only when the logo does):
- * - `icon.svg`               rounded tile, used as the browser favicon
- * - `icon-180.png`           full-bleed square: iOS rounds the corners itself,
- *                            and fills any transparency with black
- * - `icon-192/512.png`       rounded tile for Android and desktop installs
- * - `icon-maskable-512.png`  full-bleed with the mark inside the 80% safe zone
+ * - `icon.svg`               the browser favicon
+ * - `icon-180.png`           iOS home screen (flat tile; iOS rounds the corners)
+ * - `icon-192/512.png`       Android and desktop installs, transparent
+ * - `icon-maskable-512.png`  flat tile with the character in the 80% safe zone
  *
  * PNGs are rasterised with `rsvg-convert` (`brew install librsvg`); it is only
- * needed to regenerate, not to build or run the app. The geometry below is the
- * same as `BrandMark` in `src/components/ui/icons.tsx` — change them together.
+ * needed to regenerate, not to build or run the app. The drawing is mirrored by
+ * `BrandMark` in `src/components/ui/icons.tsx` — change them together.
  *
  * Run with `npm run icons`.
  */
@@ -28,96 +27,95 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(root, 'public', 'icons');
 
-/**
- * The pawn's head: a circle (centre 50,30, r 17) and its speech tail as one
- * outline, so there is no seam where the tail joins. The arc leaves the circle
- * at 125° and rejoins it at 150°; the tail points left, clear of the collar.
- */
-const BUBBLE = 'M40.25 43.93 A17 17 0 1 0 35.28 38.5 Q33 44 27 47 Q35 47.5 40.25 43.93 Z';
+/** Flat palette: no gradients, a sticker outline, one warm accent. */
+const INK = '#14213d';
+const SHELL = '#f8fafc';
+const STEEL = '#cbd5e1';
+const SCREEN = '#1b2a4a';
+const GLOW = '#5eead4';
+const ACCENT = '#fb923c';
+const BLUSH = '#f9a8d4';
+const TILE = '#3b82f6';
 
 /**
- * The mark, in a 100-unit box. Chunky on purpose: a home-screen icon is seen at
- * 60px, and thin parts vanish at that size.
+ * The character, in a 100-unit box: a chibi robot built on a pawn.
+ *
+ * The pawn's ball is the robot's oversized head (big head, small body is what
+ * reads as "cute"), its collar and flared body are the robot's torso, and the
+ * base is its feet. The face is a dark screen with two glowing eyes, a smile and
+ * blush, so it still reads as a face at favicon size.
+ *
+ * Drawn back to front; every part carries the same ink outline.
  */
-const MARK = `
-  <path d="${BUBBLE}"/>
-  <rect x="33" y="52" width="34" height="7" rx="3.5"/>
-  <path d="M40 59 H60 Q61 71 69 80 H31 Q39 71 40 59 Z"/>
-  <rect x="23" y="79" width="54" height="12" rx="6"/>
+const CHARACTER = `
+  <g stroke="${INK}" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Antenna: stalk, then a glowing tip. -->
+    <line x1="50" y1="15" x2="50" y2="7.5" fill="none"/>
+    <circle cx="50" cy="6.5" r="4.2" fill="${ACCENT}"/>
+
+    <!-- Feet: the pawn's base. -->
+    <rect x="21" y="83" width="58" height="12" rx="6" fill="${STEEL}"/>
+    <!-- Torso: the pawn's flared body, with a chest light. -->
+    <path d="M38.5 64 H61.5 Q62.5 75 70 84 H30 Q37.5 75 38.5 64 Z" fill="${SHELL}"/>
+    <circle cx="50" cy="75" r="3.2" fill="${ACCENT}" stroke-width="2.4"/>
+    <!-- Collar. -->
+    <rect x="32" y="59" width="36" height="8" rx="4" fill="${STEEL}"/>
+
+    <!-- Ear bolts. -->
+    <rect x="9.5" y="31" width="9" height="16" rx="4" fill="${STEEL}"/>
+    <rect x="81.5" y="31" width="9" height="16" rx="4" fill="${STEEL}"/>
+    <!-- Head: the pawn's ball, as a big rounded robot head. -->
+    <rect x="16" y="14" width="68" height="48" rx="22" fill="${SHELL}"/>
+    <!-- Face screen. -->
+    <rect x="24.5" y="22.5" width="51" height="31" rx="13.5" fill="${SCREEN}"/>
+  </g>
+
+  <!-- Face, on the screen: no outline, it glows. -->
+  <ellipse cx="39.5" cy="36" rx="4.6" ry="6" fill="${GLOW}"/>
+  <ellipse cx="60.5" cy="36" rx="4.6" ry="6" fill="${GLOW}"/>
+  <circle cx="41.2" cy="33.4" r="1.6" fill="#ffffff"/>
+  <circle cx="62.2" cy="33.4" r="1.6" fill="#ffffff"/>
+  <ellipse cx="31.5" cy="45" rx="3.4" ry="2" fill="${BLUSH}" opacity="0.75"/>
+  <ellipse cx="68.5" cy="45" rx="3.4" ry="2" fill="${BLUSH}" opacity="0.75"/>
+  <path d="M45.5 44.5 Q50 48.5 54.5 44.5" fill="none" stroke="${GLOW}" stroke-width="2.6" stroke-linecap="round"/>
 `;
-
-/** The four-point spark inside the bubble: the AI, in the tile's own colours. */
-const SPARK = 'M50 19.5 Q51.8 28.2 60.5 30 Q51.8 31.8 50 40.5 Q48.2 31.8 39.5 30 Q48.2 28.2 50 19.5 Z';
 
 /**
  * The icon as SVG text.
  *
- * @param scale  Size of the 100-unit mark as a fraction of the tile.
- * @param radius Corner radius as a fraction of the tile; 0 for full-bleed.
+ * @param scale      Size of the 100-unit character as a fraction of the canvas.
+ * @param background Whether to sit it on a flat tile. Without one the character
+ *                   is the whole icon, on transparency.
+ * @param radius     Corner radius of that tile as a fraction; 0 for full-bleed.
  */
-function iconSvg({ scale = 0.8, radius = 0.225 } = {}) {
+function iconSvg({ scale = 0.96, background = false, radius = 0 } = {}) {
   const S = 1024;
-  const r = S * radius;
   const size = S * scale;
   const offset = (S - size) / 2;
   const k = size / 100;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" width="${S}" height="${S}">
-  <defs>
-    <!-- The brand diagonal, blue to emerald, as in the app's buttons. -->
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#3b82f6"/>
-      <stop offset="1" stop-color="#10b981"/>
-    </linearGradient>
-    <!-- Glass sheen: light falling on the tile from the top left. -->
-    <radialGradient id="sheen" cx="0.15" cy="0" r="0.6">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/>
-      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
-    </radialGradient>
-    <linearGradient id="piece" gradientUnits="userSpaceOnUse" x1="0" y1="13" x2="0" y2="91">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="1" stop-color="#e6f0ff"/>
-    </linearGradient>
-    <linearGradient id="spark" gradientUnits="userSpaceOnUse" x1="39.5" y1="19.5" x2="60.5" y2="40.5">
-      <stop offset="0" stop-color="#3b6cf6"/>
-      <stop offset="1" stop-color="#0fb583"/>
-    </linearGradient>
-    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="1.6"/>
-    </filter>
-    <clipPath id="tile"><rect width="${S}" height="${S}" rx="${r}"/></clipPath>
-  </defs>
-
-  <g clip-path="url(#tile)">
-    <rect width="${S}" height="${S}" fill="url(#bg)"/>
-    <rect width="${S}" height="${S}" fill="url(#sheen)"/>
-    <!-- Hairline rim, brighter than the tile, as on a pane of glass. -->
-    <rect x="3" y="3" width="${S - 6}" height="${S - 6}" rx="${Math.max(0, r - 3)}" fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="6"/>
-
-    <g transform="translate(${offset} ${offset - S * 0.01}) scale(${k})">
-      <!-- A soft shadow lifts the piece off the tile. -->
-      <g fill="#0a2a66" opacity="0.32" filter="url(#soft)" transform="translate(0 2)">${MARK}</g>
-      <g fill="url(#piece)">${MARK}</g>
-      <path d="${SPARK}" fill="url(#spark)"/>
-    </g>
-  </g>
+  ${background ? `<rect width="${S}" height="${S}" rx="${S * radius}" fill="${TILE}"/>` : ''}
+  <g transform="translate(${offset} ${offset}) scale(${k})">${CHARACTER}</g>
 </svg>
 `;
 }
 
 mkdirSync(outDir, { recursive: true });
 
-// The favicon: rounded tile, the mark a touch larger so it reads at 16px.
-const favicon = iconSvg({ scale: 0.86 });
+// The favicon: the character alone, filling the tab.
+const favicon = iconSvg();
 writeFileSync(join(outDir, 'icon.svg'), favicon);
 console.log('[icons] icon.svg');
 
 const targets = [
-  { name: 'icon-180.png', size: 180, svg: iconSvg({ radius: 0 }) },
+  // iOS fills transparency with black, so the home-screen icon gets a flat tile.
+  { name: 'icon-180.png', size: 180, svg: iconSvg({ background: true, scale: 0.8 }) },
+  // Android and desktop installs keep transparency: the character is the icon.
   { name: 'icon-192.png', size: 192, svg: iconSvg() },
   { name: 'icon-512.png', size: 512, svg: iconSvg() },
   // Launchers crop maskable icons to as little as a centred 80% circle.
-  { name: 'icon-maskable-512.png', size: 512, svg: iconSvg({ radius: 0, scale: 0.6 }) },
+  { name: 'icon-maskable-512.png', size: 512, svg: iconSvg({ background: true, scale: 0.64 }) },
 ];
 
 for (const { name, size, svg } of targets) {

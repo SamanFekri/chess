@@ -8,12 +8,14 @@
 
 import type { TipLevel } from '../types';
 import type { EngineSettings } from '../engine/types';
+import type { GameMode, TimeControl } from '../types';
 
 /** Same prefix as the rest of the app's storage, kept through the rename. */
 const SOUND_KEY = 'ai-chess-coach:sound';
 const TIP_LEVEL_KEY = 'ai-chess-coach:tips';
 const ENGINE_KEY = 'ai-chess-coach:engine';
 const COACH_THINKING_KEY = 'ai-chess-coach:coach-thinking';
+const PLAY_SETUP_KEY = 'ai-chess-coach:play-setup';
 
 /** Whether sound is on. Defaults to on: the effects are the feature. */
 export function loadSoundEnabled(): boolean {
@@ -130,6 +132,47 @@ export function loadEngineChoice(): StoredEngineChoice | null {
 export function saveEngineChoice(id: string, settings: EngineSettings): void {
   try {
     localStorage.setItem(ENGINE_KEY, JSON.stringify({ id, settings }));
+  } catch {
+    /* Nothing to do. */
+  }
+}
+
+/**
+ * Who you play and on what clock, kept apart from the saved game.
+ *
+ * The saved game is cleared whenever the board is a fresh, unplayed opening, so
+ * on its own it would forget that you had just chosen "vs Friend, 5+3" the
+ * moment you reloaded before the first move.
+ */
+export interface PlaySetup {
+  mode: GameMode;
+  timeControl: TimeControl | null;
+}
+
+export function loadPlaySetup(): PlaySetup {
+  try {
+    const raw = localStorage.getItem(PLAY_SETUP_KEY);
+    if (!raw) return { mode: 'computer', timeControl: null };
+    const parsed = JSON.parse(raw) as Partial<PlaySetup>;
+    const control = parsed.timeControl;
+    const valid =
+      control &&
+      typeof control.baseMs === 'number' &&
+      control.baseMs > 0 &&
+      typeof control.incrementMs === 'number' &&
+      control.incrementMs >= 0;
+    return {
+      mode: parsed.mode === 'friend' ? 'friend' : 'computer',
+      timeControl: valid ? { baseMs: control.baseMs, incrementMs: control.incrementMs } : null,
+    };
+  } catch {
+    return { mode: 'computer', timeControl: null };
+  }
+}
+
+export function savePlaySetup(setup: PlaySetup): void {
+  try {
+    localStorage.setItem(PLAY_SETUP_KEY, JSON.stringify(setup));
   } catch {
     /* Nothing to do. */
   }

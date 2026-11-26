@@ -8,7 +8,16 @@ import {
   MIN_OPPONENT_ELO,
   UNLIMITED_ELO,
 } from '../engine/strength';
-import type { CoachFeedback, GameClock, GameResult, PlayedMove, PlayerColor } from '../types';
+import type {
+  ClockBonus,
+  CoachFeedback,
+  GameClock,
+  GameMode,
+  GameResult,
+  PlayedMove,
+  PlayerColor,
+  TimeControl,
+} from '../types';
 import type { RedoEntry } from './gameStore';
 
 /**
@@ -34,6 +43,12 @@ const GAME_VERSION = 1;
 export interface GameSnapshot {
   version: number;
   savedAt: number;
+  /** Against the computer or a friend; older saves are computer games. */
+  mode: GameMode;
+  /** Count-down time control, or null for clocks that count up. */
+  timeControl: TimeControl | null;
+  /** Increment credited to each side so far. */
+  clockBonus: ClockBonus;
   /** Position the game began from — not always the standard opening. */
   startFen: string;
   sanMoves: string[];
@@ -113,6 +128,12 @@ export function loadGame(): RestoredGame | null {
     const snapshot: GameSnapshot = {
       version: GAME_VERSION,
       savedAt: typeof parsed.savedAt === 'number' ? parsed.savedAt : Date.now(),
+      mode: parsed.mode === 'friend' ? 'friend' : 'computer',
+      timeControl: readTimeControl(parsed.timeControl),
+      clockBonus: {
+        w: readMs((parsed.clockBonus as ClockBonus | undefined)?.w),
+        b: readMs((parsed.clockBonus as ClockBonus | undefined)?.b),
+      },
       startFen,
       sanMoves: parsed.sanMoves,
       playerColor: parsed.playerColor === 'black' ? 'black' : 'white',
@@ -218,4 +239,18 @@ export function clearGame(): void {
   } catch {
     /* Nothing to do. */
   }
+}
+
+/** A non-negative whole number of milliseconds, or 0 for anything else. */
+function readMs(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
+}
+
+/** A stored time control, or null when there is none or it is malformed. */
+function readTimeControl(value: unknown): TimeControl | null {
+  if (!value || typeof value !== 'object') return null;
+  const { baseMs, incrementMs } = value as Partial<TimeControl>;
+  const base = readMs(baseMs);
+  if (base === 0) return null;
+  return { baseMs: base, incrementMs: readMs(incrementMs) };
 }

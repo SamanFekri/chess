@@ -1,5 +1,3 @@
-import { useId } from 'react';
-
 /**
  * Inline SVG icons.
  *
@@ -25,51 +23,41 @@ const base = {
 } as const;
 
 /**
- * The app mark: a pawn whose head is a speech bubble, with the AI spark inside.
+ * The app mark: a cute robot built on a pawn.
  *
- * Drawn as the whole tile, so the header and the installed-app icon are
- * visibly the one mark. The geometry is the same as
- * `scripts/generate-icons.mjs`; change them together. The shadow and rim of the
- * full-size icon are left out: at 32px they are invisible.
+ * The pawn's ball is the robot's big head with a screen face, its collar and
+ * flared body are the torso, and the base is its feet. Flat colours with a
+ * sticker outline — the same drawing as `scripts/generate-icons.mjs`, which makes
+ * the favicon and home-screen icons; change them together.
  */
 export function BrandMark({ className = 'h-8 w-8' }: { className?: string }) {
-  // Scoped so a second instance cannot collide with this one's gradients.
-  const id = useId();
-  const ref = (name: string) => `url(#${id}-${name})`;
-
   return (
     <svg viewBox="0 0 100 100" className={className} aria-hidden focusable="false">
-      <defs>
-        <linearGradient id={`${id}-bg`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#3b82f6" />
-          <stop offset="1" stopColor="#10b981" />
-        </linearGradient>
-        <radialGradient id={`${id}-sheen`} cx="0.15" cy="0" r="0.6">
-          <stop offset="0" stopColor="#ffffff" stopOpacity="0.18" />
-          <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
-        </radialGradient>
-        <linearGradient id={`${id}-spark`} gradientUnits="userSpaceOnUse" x1="39.5" y1="19.5" x2="60.5" y2="40.5">
-          <stop offset="0" stopColor="#3b6cf6" />
-          <stop offset="1" stopColor="#0fb583" />
-        </linearGradient>
-      </defs>
-
-      <rect width="100" height="100" rx="22.5" fill={ref('bg')} />
-      <rect width="100" height="100" rx="22.5" fill={ref('sheen')} />
-
-      {/* The 100-unit mark at 80% of the tile, centred, nudged up a hair. */}
-      <g transform="translate(10 9) scale(0.8)">
-        <g fill="#ffffff">
-          <path d="M40.25 43.93 A17 17 0 1 0 35.28 38.5 Q33 44 27 47 Q35 47.5 40.25 43.93 Z" />
-          <rect x="33" y="52" width="34" height="7" rx="3.5" />
-          <path d="M40 59 H60 Q61 71 69 80 H31 Q39 71 40 59 Z" />
-          <rect x="23" y="79" width="54" height="12" rx="6" />
-        </g>
-        <path
-          d="M50 19.5 Q51.8 28.2 60.5 30 Q51.8 31.8 50 40.5 Q48.2 31.8 39.5 30 Q48.2 28.2 50 19.5 Z"
-          fill={ref('spark')}
-        />
+      <g stroke="#14213d" strokeWidth="3.2" strokeLinejoin="round" strokeLinecap="round">
+        <line x1="50" y1="15" x2="50" y2="7.5" fill="none" />
+        <circle cx="50" cy="6.5" r="4.2" fill="#fb923c" />
+        <rect x="21" y="83" width="58" height="12" rx="6" fill="#cbd5e1" />
+        <path d="M38.5 64 H61.5 Q62.5 75 70 84 H30 Q37.5 75 38.5 64 Z" fill="#f8fafc" />
+        <circle cx="50" cy="75" r="3.2" fill="#fb923c" strokeWidth="2.4" />
+        <rect x="32" y="59" width="36" height="8" rx="4" fill="#cbd5e1" />
+        <rect x="9.5" y="31" width="9" height="16" rx="4" fill="#cbd5e1" />
+        <rect x="81.5" y="31" width="9" height="16" rx="4" fill="#cbd5e1" />
+        <rect x="16" y="14" width="68" height="48" rx="22" fill="#f8fafc" />
+        <rect x="24.5" y="22.5" width="51" height="31" rx="13.5" fill="#1b2a4a" />
       </g>
+      <ellipse cx="39.5" cy="36" rx="4.6" ry="6" fill="#5eead4" />
+      <ellipse cx="60.5" cy="36" rx="4.6" ry="6" fill="#5eead4" />
+      <circle cx="41.2" cy="33.4" r="1.6" fill="#ffffff" />
+      <circle cx="62.2" cy="33.4" r="1.6" fill="#ffffff" />
+      <ellipse cx="31.5" cy="45" rx="3.4" ry="2" fill="#f9a8d4" opacity="0.75" />
+      <ellipse cx="68.5" cy="45" rx="3.4" ry="2" fill="#f9a8d4" opacity="0.75" />
+      <path
+        d="M45.5 44.5 Q50 48.5 54.5 44.5"
+        fill="none"
+        stroke="#5eead4"
+        strokeWidth="2.6"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -347,6 +335,17 @@ export function PawnIcon({ className = 'h-4 w-4' }: IconProps) {
       <circle cx="12" cy="6" r="3.5" />
       <path d="M9.5 10.5h5l-.6 1.5c1.7 1.6 2.6 4.3 2.6 6.5h-9c0-2.2.9-4.9 2.6-6.5z" />
       <rect x="5.5" y="19" width="13" height="2.5" rx="1.25" />
+    </svg>
+  );
+}
+
+/** Three lines: open the side menu. */
+export function MenuIcon({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <line x1="4" y1="17" x2="20" y2="17" />
     </svg>
   );
 }

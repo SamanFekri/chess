@@ -1,9 +1,13 @@
 import { Chess, DEFAULT_POSITION, validateFen } from 'chess.js';
 import { UNLIMITED_ELO } from '../engine/strength';
-import type { GameResult, PlayerColor } from '../types';
+import type { GameResult, PlayerColor, TimeControl } from '../types';
 
 /** Metadata written into an exported PGN. */
 export interface PgnMeta {
+  /** A two-player game on one device: both sides are named by colour. */
+  friend?: boolean;
+  /** Count-down time control, written as the standard PGN TimeControl tag. */
+  timeControl?: TimeControl | null;
   playerColor: PlayerColor;
   /** Opponent strength setting, written into the engine's player name. */
   opponentElo: number;
@@ -46,8 +50,20 @@ export function buildPgn(sanMoves: string[], meta: PgnMeta): string {
   game.setHeader('Site', 'Shatranj AI');
   game.setHeader('Date', today);
   game.setHeader('Round', '1');
-  game.setHeader('White', meta.playerColor === 'white' ? 'Player' : engineName);
-  game.setHeader('Black', meta.playerColor === 'black' ? 'Player' : engineName);
+  // Between friends both sides are people; there is no engine to name.
+  if (meta.friend) {
+    game.setHeader('White', 'White');
+    game.setHeader('Black', 'Black');
+  } else {
+    game.setHeader('White', meta.playerColor === 'white' ? 'Player' : engineName);
+    game.setHeader('Black', meta.playerColor === 'black' ? 'Player' : engineName);
+  }
+  if (meta.timeControl) {
+    game.setHeader(
+      'TimeControl',
+      `${meta.timeControl.baseMs / 1000}+${meta.timeControl.incrementMs / 1000}`,
+    );
+  }
   game.setHeader('Result', resultToken(meta.result));
 
   // The standard SetUp/FEN pair, so a game that began from an edited board or an

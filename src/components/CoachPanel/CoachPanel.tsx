@@ -1,13 +1,11 @@
 import { memo, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { QUALITY_STYLES } from '../../engine/analysis';
-import { TIP_LEVELS } from '../../engine/tips';
 import { useGameStore } from '../../store/gameStore';
-import type { CoachFeedback, Insight, TipLevel } from '../../types';
+import type { CoachFeedback, Insight } from '../../types';
 import { explainSan } from '../../utils/notation';
 import { formatScore } from '../../utils/score';
 import { InfoRow, Panel } from '../ui/Panel';
-import { Switch } from '../ui/Switch';
 import { QualityIcon } from '../ui/QualityIcon';
 import {
   AlertTriangleIcon,
@@ -16,38 +14,6 @@ import {
   CloseIcon,
   LightbulbIcon,
 } from '../ui/icons';
-
-/**
- * How much unprompted advice the coach gives.
- *
- * A four-step control rather than an on/off switch because the useful answer is
- * different for different players: one wants to be told when a rook is hanging
- * and nothing else, another wants a nudge every move. Sits next to Danger as
- * another child of the coach.
- */
-function TipLevelControl() {
-  const tipLevel = useGameStore((state) => state.tipLevel);
-  const setTipLevel = useGameStore((state) => state.setTipLevel);
-  const current = TIP_LEVELS.find((level) => level.value === tipLevel) ?? TIP_LEVELS[2];
-
-  return (
-    <label className="flex shrink-0 items-center gap-1" title={current.description}>
-      <span className="text-[0.65rem] font-semibold text-slate-300">Tips</span>
-      <select
-        value={tipLevel}
-        onChange={(event) => setTipLevel(event.target.value as TipLevel)}
-        aria-label="How much advice the coach volunteers"
-        className="rounded-md border border-slate-600/70 bg-slate-900 px-0.5 py-0 text-[0.65rem] font-semibold text-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-400"
-      >
-        {TIP_LEVELS.map((level) => (
-          <option key={level.value} value={level.value}>
-            {level.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
 
 /** Icon shown next to an insight, by tone. */
 const TONE_ICON: Record<Insight['tone'], typeof CheckIcon> = {
@@ -271,10 +237,6 @@ function Briefing() {
 export const CoachPanel = memo(function CoachPanel() {
   const feedback = useGameStore((state) => state.feedback);
   const isCoachThinking = useGameStore((state) => state.isCoachThinking);
-  const dangerMode = useGameStore((state) => state.dangerMode);
-  const setDangerMode = useGameStore((state) => state.setDangerMode);
-  const showCoachThinking = useGameStore((state) => state.showCoachThinking);
-  const setShowCoachThinking = useGameStore((state) => state.setShowCoachThinking);
 
   const listRef = useRef<HTMLDivElement>(null);
   const recent = [...feedback].reverse().slice(0, 12);
@@ -307,37 +269,6 @@ export const CoachPanel = memo(function CoachPanel() {
               {isCoachThinking ? 'Analysing the position' : ''}
             </span>
           </span>
-        }
-        // Wraps rather than shrinks: three controls and a status label do not fit
-        // one line on a narrow sidebar, and a squashed switch is worse than a
-        // second row.
-        action={
-          <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1.5">
-            {/* All three on one line and deliberately small: they are settings
-                you touch once and then read past, so they should not compete
-                with the coaching underneath. They live inside the coach's panel
-                because it only exists while the coach is on, which makes the
-                parent/child relationship structural rather than a visual
-                convention. Drawing is not here — it is something you do to a
-                position, so its button is under the board. */}
-            <TipLevelControl />
-            <Switch
-              checked={showCoachThinking}
-              onChange={setShowCoachThinking}
-              label="Thinking"
-              description="Show how the coach thinks: its arrows on the board, the line it expects, and the reason for each, one step at a time"
-              labelClassName="text-[0.65rem]"
-              size="sm"
-            />
-            <Switch
-              checked={dangerMode}
-              onChange={setDangerMode}
-              label="Danger"
-              description="Mark the moves that lose material: a warning triangle where the piece you picked up can be taken, a crosshair where moving costs you a piece elsewhere"
-              labelClassName="text-[0.65rem]"
-              size="sm"
-            />
-          </div>
         }
         bodyClassName="p-0"
       >

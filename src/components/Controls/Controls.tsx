@@ -1,4 +1,4 @@
-import { memo, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   coachDepthForElo,
   ENGINE_MIN_ELO,
@@ -14,9 +14,7 @@ import type { PlayerColor } from '../../types';
 import { buildPgn, copyToClipboard, downloadText } from '../../utils/pgn';
 import { GLYPH_TINT, PIECE_GLYPH } from '../../utils/pieceGlyphs';
 import { Button } from '../ui/Button';
-import { ChevronDownIcon, DownloadIcon, FlagIcon, PencilIcon } from '../ui/icons';
-import { EngineSelector } from './EngineSelector';
-import { Panel } from '../ui/Panel';
+import { ChevronDownIcon, DownloadIcon } from '../ui/icons';
 
 /** Plain-English description of an opponent strength setting. */
 function opponentDescription(elo: number): string {
@@ -105,7 +103,7 @@ function EloSlider({
 }
 
 /** The two strength sliders: who you play, and how hard the coach thinks. */
-function StrengthSettings() {
+export function StrengthSettings() {
   const opponentElo = useGameStore((state) => state.opponentElo);
   const coachElo = useGameStore((state) => state.coachElo);
   const coachEnabled = useGameStore((state) => state.coachEnabled);
@@ -157,7 +155,7 @@ function StrengthSettings() {
 }
 
 /** Colour picker for the next game. */
-function ColorChoice() {
+export function ColorChoice() {
   const playerColor = useGameStore((state) => state.playerColor);
   const requestNewGame = useGameStore((state) => state.requestNewGame);
 
@@ -197,7 +195,7 @@ function ColorChoice() {
  * and the figure is only useful if it is believable. Whatever is entered becomes
  * the new anchor and then moves normally with each finished game.
  */
-function RatingSetting() {
+export function RatingSetting() {
   const rating = useGameStore((state) => state.rating);
   const setRatingManually = useGameStore((state) => state.setRatingManually);
   const resetRating = useGameStore((state) => state.resetRating);
@@ -213,7 +211,7 @@ function RatingSetting() {
   };
 
   return (
-    <div className="border-t border-slate-800/70 pt-3">
+    <div>
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-slate-500">
@@ -282,7 +280,7 @@ function RatingSetting() {
 }
 
 /** Import/export drawer for PGN and FEN. */
-function TransferPanel() {
+export function TransferPanel() {
   const sanHistory = useGameStore((state) => state.sanHistory);
   const fen = useGameStore((state) => state.fen);
   const playerColor = useGameStore((state) => state.playerColor);
@@ -296,7 +294,14 @@ function TransferPanel() {
   const [text, setText] = useState('');
   const [status, setStatus] = useState<{ tone: 'ok' | 'error'; message: string } | null>(null);
 
-  const pgn = () => buildPgn(sanHistory, { playerColor, opponentElo, result, startFen });
+  const pgn = () => buildPgn(sanHistory, {
+                  playerColor,
+                  opponentElo,
+                  result,
+                  startFen,
+                  friend: useGameStore.getState().mode === 'friend',
+                  timeControl: useGameStore.getState().timeControl,
+                });
 
   /** Guesses whether the pasted text is a FEN or a PGN and imports accordingly. */
   const handleImport = async () => {
@@ -327,7 +332,7 @@ function TransferPanel() {
   };
 
   return (
-    <div className="border-t border-slate-800/70 pt-3">
+    <div>
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -392,37 +397,3 @@ function TransferPanel() {
     </div>
   );
 }
-
-/** Between-games settings: side, difficulty, resign, import/export. */
-export const Controls = memo(function Controls() {
-  const resign = useGameStore((state) => state.resign);
-  const enterEditMode = useGameStore((state) => state.enterEditMode);
-  const moves = useGameStore((state) => state.moves);
-  const result = useGameStore((state) => state.result);
-
-  const inProgress = result.status === 'in-progress';
-
-  return (
-    <Panel title="Game" bodyClassName="space-y-3 px-4 py-3">
-      <ColorChoice />
-
-      <StrengthSettings />
-
-      <EngineSelector />
-
-      {/* Undo, Hint and Flip live in QuickActions under the board, and New game
-          lives in the header — all reachable without scrolling to this panel. */}
-      <div className="grid grid-cols-2 gap-2">
-        <Button variant="ghost" onClick={enterEditMode}>
-          <PencilIcon /> Set up board
-        </Button>
-        <Button variant="danger" onClick={resign} disabled={!inProgress || moves.length === 0}>
-          <FlagIcon /> Resign
-        </Button>
-      </div>
-
-      <RatingSetting />
-      <TransferPanel />
-    </Panel>
-  );
-});

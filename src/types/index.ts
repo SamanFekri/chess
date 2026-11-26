@@ -140,7 +140,7 @@ export interface PlayedMove {
 export type GameResult =
   | { status: 'in-progress' }
   | {
-      status: 'checkmate' | 'resignation' | 'stalemate' | 'draw';
+      status: 'checkmate' | 'resignation' | 'timeout' | 'stalemate' | 'draw';
       /** Winner, or null for a draw. */
       winner: Color | null;
       /** Plain-English reason, e.g. "Black resigned." */
@@ -337,6 +337,30 @@ export interface CoachTip {
  * a tab you have switched away from — time spent in another window is not time
  * spent thinking about the position.
  */
+/**
+ * Who you are playing.
+ *
+ * `computer` is the coached game against Stockfish. `friend` is two people
+ * sharing one device: no engine, no coaching, both colours played by hand.
+ */
+export type GameMode = 'computer' | 'friend';
+
+/**
+ * A count-down time control: each side starts with `baseMs`, and gains
+ * `incrementMs` after every move it makes (a Fischer increment, as in "5+3").
+ * Null in the store means no limit — the clocks simply count up.
+ */
+export interface TimeControl {
+  baseMs: number;
+  incrementMs: number;
+}
+
+/** Increment time each side has been credited this game, in milliseconds. */
+export interface ClockBonus {
+  w: number;
+  b: number;
+}
+
 export interface GameClock {
   w: number;
   b: number;

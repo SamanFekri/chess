@@ -2,7 +2,6 @@ import { AnimatePresence } from 'framer-motion';
 import { ChessBoard } from './components/ChessBoard/ChessBoard';
 import { ExplainOverlay } from './components/ChessBoard/ExplainOverlay';
 import { CoachPanel } from './components/CoachPanel/CoachPanel';
-import { Controls } from './components/Controls/Controls';
 import { EvaluationBar } from './components/EvaluationBar/EvaluationBar';
 import { GameReview } from './components/GameReview/GameReview';
 import { Header, TurnBar } from './components/Header/Header';
@@ -10,6 +9,8 @@ import { MoveList } from './components/MoveList/MoveList';
 import { PositionEditor } from './components/EditPosition/PositionEditor';
 import { NewGameConfirm } from './components/Controls/NewGameConfirm';
 import { QuickActions } from './components/Controls/QuickActions';
+import { PlayerStrip } from './components/PlayerClock/PlayerStrip';
+import { SideMenu } from './components/Menu/SideMenu';
 import { useEngineBoot } from './hooks/useEngineBoot';
 import { useGameClock } from './hooks/useGameClock';
 import { useSoundUnlock } from './hooks/useSoundUnlock';
@@ -22,6 +23,30 @@ import { useGameStore } from './store/gameStore';
  * @param withEvaluation Whether to reserve space for the evaluation bar.
  */
 function BoardColumn({ withEvaluation }: { withEvaluation: boolean }) {
+  const mode = useGameStore((state) => state.mode);
+  const orientation = useGameStore((state) => state.boardOrientation);
+
+  // A friend game: each player's clock on their own edge of the board — the
+  // side at the top above it, the side at the bottom below.
+  if (mode === 'friend') {
+    const bottom = orientation === 'white' ? 'w' : 'b';
+    const top = bottom === 'w' ? 'b' : 'w';
+    return (
+      <div className="mx-auto w-full max-w-[min(100%,calc(100vh-21rem))] min-w-0">
+        <div className="mb-2">
+          <PlayerStrip color={top} />
+        </div>
+        <ChessBoard />
+        <div className="mt-2">
+          <PlayerStrip color={bottom} />
+        </div>
+        <div className="mt-3">
+          <QuickActions />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-stretch gap-3">
       {withEvaluation && (
@@ -95,6 +120,7 @@ export default function App() {
         </main>
 
         <NewGameConfirm />
+        <SideMenu />
       </div>
     );
   }
@@ -104,17 +130,17 @@ export default function App() {
       <div className="min-h-screen bg-slate-950 text-slate-100">
         <Header />
 
-        <main className="mx-auto flex max-w-3xl flex-col gap-4 px-3 pb-10 pt-4 sm:px-6">
+        {/* No coach sidebar, so the move list takes that column on desktop. */}
+        <main className="mx-auto flex max-w-5xl flex-col gap-4 px-3 pb-10 pt-4 sm:px-6 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
           <BoardColumn withEvaluation={false} />
-
-          <section className="grid gap-4 sm:grid-cols-2">
+          <aside className="lg:sticky lg:top-[4.75rem]">
             <MoveList />
-            <Controls />
-          </section>
+          </aside>
         </main>
 
         <GameReview />
         <NewGameConfirm />
+        <SideMenu />
       </div>
     );
   }
@@ -133,14 +159,14 @@ export default function App() {
           <CoachPanel />
         </aside>
 
-        <section className="grid gap-4 sm:grid-cols-2 lg:col-start-1 lg:row-start-2">
+        <section className="lg:col-start-1 lg:row-start-2">
           <MoveList />
-          <Controls />
         </section>
       </main>
 
       <GameReview />
       <NewGameConfirm />
+      <SideMenu />
     </div>
   );
 }

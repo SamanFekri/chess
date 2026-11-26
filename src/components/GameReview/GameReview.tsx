@@ -87,6 +87,7 @@ export const GameReview = memo(function GameReview() {
   const startFen = useGameStore((state) => state.startFen);
   const rating = useGameStore((state) => state.rating);
   const clock = useGameStore((state) => state.clock);
+  const friend = useGameStore((state) => state.mode === 'friend');
 
   if (!review) return null;
 
@@ -95,9 +96,11 @@ export const GameReview = memo(function GameReview() {
       ? 'Game in progress'
       : result.winner === null
         ? 'Draw'
-        : result.winner === (playerColor === 'white' ? 'w' : 'b')
-          ? 'You won'
-          : 'You lost';
+        : friend
+          ? `${result.winner === 'w' ? 'White' : 'Black'} won`
+          : result.winner === (playerColor === 'white' ? 'w' : 'b')
+            ? 'You won'
+            : 'You lost';
 
   return (
     <div
@@ -115,7 +118,7 @@ export const GameReview = memo(function GameReview() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 id="review-title" className="text-xl font-bold text-slate-100">
-              Game review — {outcome}
+              {friend ? outcome : <>Game review — {outcome}</>}
             </h2>
             <p className="mt-0.5 text-sm text-slate-400">
               {result.status !== 'in-progress' ? result.reason : ''} Opening: {review.opening}.
@@ -131,6 +134,13 @@ export const GameReview = memo(function GameReview() {
           </button>
         </div>
 
+        {friend ? (
+          <p className="mt-3 text-sm leading-relaxed text-slate-400">
+            White spent {describeDuration(clock.w)} on the board, Black{' '}
+            {describeDuration(clock.b)}. Friend games do not change your rating.
+          </p>
+        ) : (
+        <>
         <div className="mt-4 flex gap-3">
           {/* Accuracy is only meaningful when the moves were actually graded —
               with the coach off there is nothing behind the number. */}
@@ -179,6 +189,8 @@ export const GameReview = memo(function GameReview() {
             header and the next game gets accuracy figures, a move breakdown and the moments
             worth going back over.
           </p>
+        )}
+        </>
         )}
 
         {review.keyMoments.length > 0 && (
@@ -230,7 +242,14 @@ export const GameReview = memo(function GameReview() {
             onClick={() =>
               downloadText(
                 'shatranj-ai.pgn',
-                buildPgn(sanHistory, { playerColor, opponentElo, result, startFen }),
+                buildPgn(sanHistory, {
+                  playerColor,
+                  opponentElo,
+                  result,
+                  startFen,
+                  friend: useGameStore.getState().mode === 'friend',
+                  timeControl: useGameStore.getState().timeControl,
+                }),
               )
             }
             className="flex-1 basis-40"

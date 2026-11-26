@@ -4,14 +4,12 @@ import { useGameStore } from '../../store/gameStore';
 import { materialPointDiff } from '../../utils/chess';
 import { describeDuration, formatDuration } from '../../utils/time';
 import { GLYPH_TINT, PIECE_GLYPH } from '../../utils/pieceGlyphs';
-import { describeRating, PROVISIONAL_GAMES } from '../../store/rating';
 import type { EngineStatus } from '../../types';
-import { Switch } from '../ui/Switch';
 import {
   BrandMark,
   ClockIcon,
+  MenuIcon,
   PauseIcon,
-  PawnIcon,
   PencilIcon,
   PlayIcon,
   SoundOffIcon,
@@ -37,63 +35,6 @@ const STATUS_META: Record<EngineStatus, { dot: string; label: string; descriptio
 };
 
 /**
- * The player's estimated Elo, read from the persisted rating record.
- *
- * Shown next to the app identity because it is a fact about the player rather
- * than about the current position.
- */
-function RatingChip() {
-  const rating = useGameStore((state) => state.rating);
-  const provisional = rating.gamesPlayed < PROVISIONAL_GAMES;
-
-  return (
-    <span
-      className="flex h-full shrink-0 items-center gap-1 pl-2.5 pr-2 text-xs sm:gap-1.5 sm:pl-3"
-      title={describeRating(rating)}
-    >
-      <PawnIcon className="h-3.5 w-3.5 text-slate-400" />
-      <span className="font-semibold text-slate-200" aria-label="Your estimated rating">
-        {rating.gamesPlayed === 0 ? 'Unrated' : rating.elo}
-      </span>
-      {rating.gamesPlayed > 0 && provisional && (
-        <span className="text-[0.65rem] font-medium text-amber-300/80">?</span>
-      )}
-      {rating.lastChange !== null && rating.gamesPlayed > 0 && (
-        <span
-          className={`text-[0.65rem] font-semibold tabular-nums ${
-            rating.lastChange > 0
-              ? 'text-emerald-400'
-              : rating.lastChange < 0
-                ? 'text-red-400'
-                : 'text-slate-500'
-          }`}
-        >
-          {rating.lastChange > 0 ? '+' : ''}
-          {rating.lastChange}
-        </span>
-      )}
-    </span>
-  );
-}
-
-/** The coach on/off switch — turns the app into a plain chess game. */
-function CoachSwitch() {
-  const coachEnabled = useGameStore((state) => state.coachEnabled);
-  const setCoachEnabled = useGameStore((state) => state.setCoachEnabled);
-
-  return (
-    <Switch
-      checked={coachEnabled}
-      onChange={(enabled) => void setCoachEnabled(enabled)}
-      label="Coach"
-      description="Turn off for a plain game with no coaching, hints or evaluation"
-      labelClassName="text-xs sm:text-sm"
-      className="h-full pl-2 pr-3"
-    />
-  );
-}
-
-/**
  * Mute toggle.
  *
  * An icon button rather than a labelled switch: the header has to stay on one
@@ -114,37 +55,12 @@ function SoundToggle() {
           ? 'Sound is on — moves, captures, promotions and the result'
           : 'Sound is off'
       }
-      className={`grid h-full w-9 shrink-0 place-items-center transition-[color,background-color] duration-150 ease-out hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-400 active:bg-white/10 ${
+      className={`glass-control grid h-10 w-10 shrink-0 place-items-center rounded-full transition-[color,transform] duration-150 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 active:scale-[0.94] ${
         soundEnabled ? 'text-slate-200 hover:text-white' : 'text-slate-500 hover:text-slate-300'
       }`}
     >
       {soundEnabled ? <SoundOnIcon /> : <SoundOffIcon />}
     </button>
-  );
-}
-
-/** Engine state, search depth and speed — the telemetry strip. */
-function EngineStatusChip() {
-  const status = useGameStore((state) => state.engineStatus);
-  const analysis = useGameStore((state) => state.analysis);
-  const coachEnabled = useGameStore((state) => state.coachEnabled);
-  const meta = STATUS_META[status];
-
-  return (
-    <div
-      className="glass-control hidden h-9 items-center gap-2 rounded-full px-3 sm:flex"
-      aria-label={meta.description}
-    >
-      <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} aria-hidden />
-      <span className="text-xs font-medium text-slate-300">{meta.label}</span>
-      {/* Search telemetry is coaching detail — hidden in plain-game mode. */}
-      {coachEnabled && analysis && analysis.depth > 0 && (
-        <span className="hidden font-mono text-xs text-slate-500 sm:inline" aria-label="Search depth">
-          d{analysis.depth}
-          {analysis.nps ? ` · ${Math.round(analysis.nps / 1000)}kn/s` : ''}
-        </span>
-      )}
-    </div>
   );
 }
 
@@ -364,72 +280,72 @@ export function TurnBar() {
   );
 }
 
-/** App header: identity and rating on the left, live status on the right. */
+/**
+ * App header: the menu, the app's name, and sound.
+ *
+ * Deliberately sparse. Everything you set rather than use — who you play, the
+ * clock, the coach, your rating — lives in the side menu behind the button on
+ * the left, so the bar fits a 320px phone without anything fighting for room.
+ */
 export const Header = memo(function Header() {
   const engineError = useGameStore((state) => state.engineError);
-
   const engineStatus = useGameStore((state) => state.engineStatus);
+  const friend = useGameStore((state) => state.mode === 'friend');
+  const setMenuOpen = useGameStore((state) => state.setMenuOpen);
+  const menuOpen = useGameStore((state) => state.menuOpen);
+
   /**
-   * On a phone the engine chip is the first thing to go — "Ready" is the
-   * normal state and says nothing. What is left is a dot on the logo while the
-   * engine is still starting or has failed: the only states worth a glance.
+   * The engine's state, as a dot on the logo — only while it is starting or has
+   * failed, the two states worth a glance. "Ready" is normal and says nothing.
    */
-  const mobileStatus =
-    engineStatus === 'loading' || engineStatus === 'idle' || engineStatus === 'error'
+  const status =
+    !friend && (engineStatus === 'loading' || engineStatus === 'idle' || engineStatus === 'error')
       ? STATUS_META[engineStatus]
       : null;
 
   return (
     <header
       // Sticky glass: the page scrolls beneath it, so the material has the board
-      // and panels to blur instead of a flat fill. Square-cornered and edge to
-      // edge, with only a bottom hairline, as a bar rather than a floating card.
-      // It carries the top safe area itself: were that padding on <html>, a
-      // sticky bar would scroll up into the notch once the page moved.
+      // and panels to blur. It carries the top safe area itself: were that
+      // padding on <html>, a sticky bar would scroll up into the notch.
       className="glass sticky top-0 z-40 rounded-none pt-[env(safe-area-inset-top)] shadow-none before:hidden [box-shadow:inset_0_-1px_0_rgb(255_255_255/0.06)]"
     >
-      <div className="mx-auto flex h-14 max-w-[100rem] flex-nowrap items-center justify-between gap-3 px-3 sm:h-16 sm:px-6">
-        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-          {/* The installed-app icon itself, so header and home screen are
-              recognisably one thing. */}
+      <div className="mx-auto flex h-14 max-w-[100rem] items-center justify-between gap-3 px-3 sm:h-16 sm:px-6">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Open menu"
+            aria-expanded={menuOpen}
+            aria-haspopup="dialog"
+            className="glass-control grid h-10 w-10 shrink-0 place-items-center rounded-full text-slate-200 transition-[color,transform] duration-150 ease-out hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 active:scale-[0.94]"
+          >
+            <MenuIcon className="h-5 w-5" />
+          </button>
+
           <span className="relative shrink-0">
-            <BrandMark className="h-8 w-8 drop-shadow-[0_2px_6px_rgb(2_6_23/0.6)] sm:h-9 sm:w-9" />
-            {mobileStatus && (
+            <BrandMark className="h-9 w-9 sm:h-10 sm:w-10" />
+            {status && (
               <span
                 role="status"
-                className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-slate-950 sm:hidden ${mobileStatus.dot}`}
+                title={status.description}
+                className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-slate-950 ${status.dot}`}
               >
-                <span className="sr-only">{mobileStatus.description}</span>
+                <span className="sr-only">{status.description}</span>
               </span>
             )}
           </span>
-          {/* Dropped below 360px, where the logo alone has to carry the name
-              so the controls keep a full-size tap target. */}
-          <div className="hidden min-w-0 min-[360px]:block">
+          <div className="min-w-0">
             <h1 className="truncate text-[0.95rem] font-bold leading-tight tracking-tight text-slate-50 sm:text-base">
               Shatranj AI
             </h1>
-            <p className="hidden text-xs text-slate-400 lg:block">
-              Play Stockfish. Learn from every move.
+            <p className="hidden truncate text-xs text-slate-400 sm:block">
+              {friend ? 'Two players, one board.' : 'Play Stockfish. Learn from every move.'}
             </p>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <EngineStatusChip />
-          {/* One capsule for the three player settings, split by hairlines —
-              a grouped toolbar item rather than three chips fighting for the
-              same row. */}
-          <div
-            role="group"
-            aria-label="Player settings"
-            className="glass-control flex h-9 items-center divide-x divide-white/10 overflow-hidden rounded-full"
-          >
-            <RatingChip />
-            <SoundToggle />
-            <CoachSwitch />
-          </div>
-        </div>
+        <SoundToggle />
       </div>
 
       {engineError && (

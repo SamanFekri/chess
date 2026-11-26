@@ -44,19 +44,26 @@ export const QuickActions = memo(function QuickActions() {
   const drawMode = useGameStore((state) => state.drawMode);
   const setDrawMode = useGameStore((state) => state.setDrawMode);
   const drawings = useGameStore((state) => state.drawings);
+  const friend = useGameStore((state) => state.mode === 'friend');
 
   const isPlayerTurn =
     result.status === 'in-progress' &&
     (fen.split(' ')[1] === 'b' ? 'black' : 'white') === playerColor;
 
   const inProgress = result.status === 'in-progress';
+  /**
+   * A game lost on time stays lost: the clock that ran out is still at zero, so
+   * taking a move back would only let the flag fall again the instant play
+   * resumed.
+   */
+  const flagged = result.status === 'timeout';
   /** Anything drawn on the board that undo would remove before touching moves. */
   const hasInk = drawMode && (drawings.arrows.length > 0 || drawings.circles.length > 0);
 
   return (
     <div className="space-y-2">
       <div
-        className={`grid gap-2 ${coachEnabled ? 'grid-cols-4' : 'grid-cols-3'}`}
+        className={`grid gap-2 ${friend ? 'grid-cols-2' : coachEnabled ? 'grid-cols-4' : 'grid-cols-3'}`}
         role="group"
         aria-label="Quick actions"
       >
@@ -66,7 +73,7 @@ export const QuickActions = memo(function QuickActions() {
         <Button
           variant="secondary"
           onClick={() => void undoMove()}
-          disabled={(moves.length === 0 && !hasInk) || isOpponentThinking}
+          disabled={(moves.length === 0 && !hasInk) || isOpponentThinking || flagged}
           title={
             hasInk
               ? `Remove the last thing you drew (${modifierKeyLabel()}+Z). Press again to remove the one before it.`
@@ -80,7 +87,7 @@ export const QuickActions = memo(function QuickActions() {
         <Button
           variant="secondary"
           onClick={() => void redoMove()}
-          disabled={redoCount === 0 || isOpponentThinking}
+          disabled={redoCount === 0 || isOpponentThinking || flagged}
           title={`Replay a taken-back move (${modifierKeyLabel()}+Shift+Z)`}
           className="min-h-12 max-[359px]:text-[0.8rem] max-[359px]:[&>svg]:hidden"
         >
@@ -108,6 +115,9 @@ export const QuickActions = memo(function QuickActions() {
         {/* Top row with Undo, Redo and Hint because it is a board action, not a
             game one — and because this is the row people look at. Highlighted
             rather than grey so it does not disappear into the pair beside it. */}
+        {/* Drawing on the board is the coach's teaching tool; a friend game
+            has no lesson to stop for. */}
+        {!friend && (
         <Button
           variant={drawMode ? 'success' : 'primary'}
           onClick={() => setDrawMode(!drawMode)}
@@ -121,6 +131,7 @@ export const QuickActions = memo(function QuickActions() {
         >
           <PencilIcon /> {drawMode ? 'Done' : 'Explain'}
         </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-3 gap-2">

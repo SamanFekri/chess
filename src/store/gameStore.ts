@@ -31,17 +31,20 @@ import { defaultSettingsFor, engineById } from '../engine/catalogue';
 import type { EngineDefinition, EngineSettings } from '../engine/types';
 import type {
   BoardDrawings,
+  ClockBonus,
   CoachFeedback,
   CoachTip,
   DrawColor,
   Explanation,
   EngineStatus,
   GameClock,
+  GameMode,
   GameResult,
   GameReview,
   PlayedMove,
   PlayerColor,
   PositionAnalysis,
+  TimeControl,
   TipLevel,
 } from '../types';
 import { isBookMove } from '../utils/openings';
@@ -50,10 +53,12 @@ import { playSound, setSoundEnabled as applyMuteSetting, soundForMove } from '..
 import {
   loadEngineChoice,
   loadCoachThinking,
+  loadPlaySetup,
   loadSoundEnabled,
   loadTipLevel,
   saveEngineChoice,
   saveCoachThinking,
+  savePlaySetup,
   saveSoundEnabled,
   saveTipLevel,
 } from './preferences';
@@ -89,6 +94,11 @@ let game = new Chess();
  */
 const restored = loadGame();
 if (restored) game = restored.game;
+
+/** Mode and clock: from the saved game when there is one, else the last choice. */
+const initialSetup = restored
+  ? { mode: restored.snapshot.mode, timeControl: restored.snapshot.timeControl }
+  : loadPlaySetup();
 
 /**
  * Incremented on every new game, import or takeback.
@@ -201,6 +211,61 @@ function emptyClock(): GameClock {
   return { w: 0, b: 0, since: null, side: null };
 }
 
+/** No increment credited yet. */
+function emptyBonus(): ClockBonus {
+  return { w: 0, b: 0 };
+}
+
+/**
+ * Time a side has used, including the segment that is running right now.
+ *
+ * The store banks time only every few seconds, so anything that has to be exact
+ * — a count-down readout, the flag falling — adds the live segment itself.
+ */
+export function usedMs(clock: GameClock, side: Color, now = Date.now()): number {
+  const banked = side === 'w' ? clock.w : clock.b;
+  const live = clock.since !== null && clock.side === side ? Math.max(0, now - clock.since) : 0;
+  return banked + live;
+}
+
+/** Time a side has left under a count-down time control. Never below zero. */
+export function remainingMs(
+  clock: GameClock,
+  bonus: ClockBonus,
+  control: TimeControl,
+  side: Color,
+  now = Date.now(),
+): number {
+  return Math.max(0, control.baseMs + bonus[side] - usedMs(clock, side, now));
+}
+
+/**
+ * Whether `color` has too little material to ever deliver mate.
+ *
+ * The rule that decides a flag fall: running out of time loses, unless the
+ * opponent could not possibly checkmate, in which case it is a draw. This is the
+ * common simplified test — a lone king, or a king with a single bishop or knight
+ * and nothing else — rather than FIDE's full "any legal sequence" analysis.
+ */
+function cannotMate(board: Chess, color: Color): boolean {
+  const pieces = board
+    .board()
+    .flat()
+    .filter((square) => square && square.color === color && square.type !== 'k');
+  if (pieces.length === 0) return true;
+  return pieces.length === 1 && (pieces[0]!.type === 'b' || pieces[0]!.type === 'n');
+}
+
+/**
+ * The coach setting to return to when leaving a friend game.
+ *
+ * A friend game turns the coach off — there is no one to coach — but that is not
+ * the player changing their mind about coaching, so going back to the computer
+ * puts it back the way it was.
+ */
+let computerCoachEnabled =
+  restored?.snapshot.mode === 'friend' ? true : (restored?.snapshot.coachEnabled ?? true);
+
 /**
  * The longest stretch a single clock segment may bank.
  *
@@ -224,6 +289,10 @@ export interface RedoEntry {
 /** Shape of the game store. */
 interface GameStore {
   // ── Configuration ────────────────────────────────────────────────────────
+  /** Against Stockfish with the coach, or against a friend on this device. */
+  mode: GameMode;
+  /** Count-down time control for a friend game, or null for clocks that count up. */
+  timeControl: TimeControl | null;
   playerColor: PlayerColor;
   /** Opponent playing strength in Elo, or UNLIMITED_ELO for full strength. */
   opponentElo: number;
@@ -271,6 +340,11 @@ interface GameStore {
    * a setting you keep.
    */
   drawMode: boolean;
+  /**
+   * Whether the side menu is open. Interface state, but it lives here so the
+   * header's button and the menu itself — far apart in the tree — share it.
+   */
+  menuOpen: boolean;
 
   // ── Position ─────────────────────────────────────────────────────────────
   /**
@@ -298,6 +372,8 @@ interface GameStore {
   isPaused: boolean;
   /** Time each side has spent thinking in this game. */
   clock: GameClock;
+  /** Increment credited to each side, under a count-down time control. */
+  clockBonus: ClockBonus;
 
   // ── Engine ───────────────────────────────────────────────────────────────
   engineStatus: EngineStatus;
@@ -391,13 +467,13 @@ interface GameStore {
    *
    * Only set when there is a game worth losing — see {@link requestNewGame}.
    */
-  pendingNewGame: { playerColor?: PlayerColor; opponentElo?: number } | null;
+  pendingNewGame: NewGameOptions | null;
 
   // ── Actions ──────────────────────────────────────────────────────────────
   bootEngine: () => Promise<void>;
-  newGame: (options?: { playerColor?: PlayerColor; opponentElo?: number }) => Promise<void>;
+  newGame: (options?: NewGameOptions) => Promise<void>;
   /** Starts a new game, asking first when one is genuinely in progress. */
-  requestNewGame: (options?: { playerColor?: PlayerColor; opponentElo?: number }) => Promise<void>;
+  requestNewGame: (options?: NewGameOptions) => Promise<void>;
   /** Goes ahead with the new game the confirmation was asked about. */
   confirmNewGame: () => Promise<void>;
   /** Dismisses the confirmation and keeps the current game. */
@@ -425,6 +501,13 @@ interface GameStore {
    * should be running at all; the store only does the arithmetic.
    */
   syncClock: (running: boolean) => void;
+  /**
+   * Ends the game if the side to move has run out of time.
+   *
+   * Called by `useGameClock` at the moment the running clock should reach zero;
+   * re-checks the arithmetic itself, so an early or duplicate call is harmless.
+   */
+  checkFlag: () => void;
   setOpponentElo: (elo: number) => void;
   setCoachElo: (elo: number) => void;
   setCoachEnabled: (enabled: boolean) => Promise<void>;
@@ -448,6 +531,8 @@ interface GameStore {
   setShowCoachThinking: (enabled: boolean) => void;
   /** Hands the board over for drawing, stopping the game, or gives it back. */
   setDrawMode: (enabled: boolean) => void;
+  /** Opens or closes the side menu. */
+  setMenuOpen: (open: boolean) => void;
   /** Adds an arrow, or removes it when it is already there. */
   toggleDrawnArrow: (from: string, to: string) => void;
   /** Rings a square, or clears the ring when it is already there. */
@@ -496,6 +581,15 @@ interface GameStore {
   importPgn: (pgn: string) => Promise<string | null>;
   importFen: (fen: string) => Promise<string | null>;
   dismissReview: () => void;
+}
+
+/** What a new game can change on the way in; anything left out stays as it is. */
+export interface NewGameOptions {
+  playerColor?: PlayerColor;
+  opponentElo?: number;
+  mode?: GameMode;
+  /** Null for no limit; undefined to keep the current one. */
+  timeControl?: TimeControl | null;
 }
 
 /** Colour code for the human player. */
@@ -682,23 +776,25 @@ export const useGameStore = create<GameStore>((set, get) => {
    * with nothing shown leaves the player wondering whether it registered at all.
    */
   const finishGame = (result: GameResult) => {
-    const { moves, playerColor, rating, ratingApplied, opponentElo } = get();
+    const { moves, playerColor, rating, ratingApplied, opponentElo, mode } = get();
+    const friend = mode === 'friend';
 
     // `finishIfOver` can be reached from more than one path in a single ply, so
-    // the flag is what guarantees one rating update per game.
-    const updated = ratingApplied
-      ? rating
-      : applyGame(rating, result, playerColor, opponentElo);
-    if (!ratingApplied) saveRating(updated);
+    // the flag is what guarantees one rating update per game. A game between two
+    // people at one device says nothing about your strength, so it never counts.
+    const updated =
+      ratingApplied || friend ? rating : applyGame(rating, result, playerColor, opponentElo);
+    if (!ratingApplied && !friend) saveRating(updated);
 
     // Same guard as the rating, and for the same reason: a single game end can
     // reach here from more than one path in one ply, and the fanfare must not
     // play twice.
     if (!ratingApplied && result.status !== 'in-progress') {
+      // Between friends someone always won, so a decisive result is a win.
       playSound(
         result.winner === null
           ? 'draw'
-          : result.winner === playerCode(playerColor)
+          : friend || result.winner === playerCode(playerColor)
             ? 'win'
             : 'lose',
       );
@@ -883,6 +979,13 @@ export const useGameStore = create<GameStore>((set, get) => {
   const coachAndReply = async (token: number, context: { move: Move; fenBefore: string; ply: number }) => {
     const { move, fenBefore, ply } = context;
 
+    // Between friends there is no reply to wait for and nothing to grade: the
+    // other player simply moves next.
+    if (get().mode === 'friend') {
+      finishIfOver();
+      return;
+    }
+
     try {
       // Coaching off: no grading, no explanation, no analysis search — just hand
       // over to the opponent, which is what "play normally" means.
@@ -1066,6 +1169,13 @@ export const useGameStore = create<GameStore>((set, get) => {
 
   /** Analyses the opening position and lets the engine start if it is White. */
   const startPosition = async (token: number) => {
+    // A friend game needs no engine at all, so it is never downloaded or started.
+    if (get().mode === 'friend') {
+      set({ engineStatus: 'ready', engineError: null });
+      refreshBriefing();
+      return;
+    }
+
     try {
       if (!(await bootActiveEngine(token))) return;
 
@@ -1099,7 +1209,10 @@ export const useGameStore = create<GameStore>((set, get) => {
   const resetTo = async (
     setup: () => void,
     overrides: Partial<
-      Pick<GameStore, 'playerColor' | 'opponentElo' | 'boardOrientation' | 'startFen'>
+      Pick<
+        GameStore,
+        'playerColor' | 'opponentElo' | 'boardOrientation' | 'startFen' | 'mode' | 'timeControl' | 'coachEnabled'
+      >
     > = {},
   ) => {
     generation += 1;
@@ -1140,6 +1253,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       redoStack: [],
       isPaused: false,
       clock: emptyClock(),
+      clockBonus: emptyBonus(),
       // A new board is a new game as far as the rating is concerned.
       ratingApplied: false,
     });
@@ -1149,16 +1263,21 @@ export const useGameStore = create<GameStore>((set, get) => {
   };
 
   return {
+    mode: initialSetup.mode,
+    timeControl: initialSetup.timeControl,
+    // With no saved game, a friend setup still has to start with the coach off.
+    coachEnabled:
+      initialSetup.mode === 'friend' ? false : (restored?.snapshot.coachEnabled ?? true),
     playerColor: restored?.snapshot.playerColor ?? 'white',
     opponentElo: restored?.snapshot.opponentElo ?? 1800,
     coachElo: restored?.snapshot.coachElo ?? DEFAULT_COACH_ELO,
     boardOrientation: restored?.snapshot.boardOrientation ?? 'white',
-    coachEnabled: restored?.snapshot.coachEnabled ?? true,
     dangerMode: restored?.snapshot.dangerMode ?? false,
     soundEnabled: initialSoundEnabled,
     tipLevel: loadTipLevel(),
     showCoachThinking: loadCoachThinking(),
     drawMode: false,
+    menuOpen: false,
 
     startFen: restored?.snapshot.startFen ?? DEFAULT_POSITION,
     fen: game.fen(),
@@ -1170,6 +1289,7 @@ export const useGameStore = create<GameStore>((set, get) => {
     // Restored stopped: whatever the tab was doing while it was closed, it was
     // not thinking about this position.
     clock: { ...(restored?.snapshot.clock ?? emptyClock()), since: null, side: null },
+    clockBonus: restored?.snapshot.clockBonus ?? emptyBonus(),
 
     engineStatus: 'idle',
     engineError: null,
@@ -1207,6 +1327,10 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     async bootEngine() {
       if (get().engineStatus !== 'idle') return;
+      if (get().mode === 'friend') {
+        set({ engineStatus: 'ready' });
+        return;
+      }
       set({ engineStatus: 'loading' });
       generation += 1;
       await startPosition(generation);
@@ -1217,9 +1341,10 @@ export const useGameStore = create<GameStore>((set, get) => {
 
       // Nothing is lost when the game is already over, or when only the engine
       // has moved — a board where you have not played yet is not "your game".
-      const youHaveMoved = state.moves.some(
-        (move) => move.color === playerCode(state.playerColor),
-      );
+      const youHaveMoved =
+        state.mode === 'friend'
+          ? state.moves.length > 0
+          : state.moves.some((move) => move.color === playerCode(state.playerColor));
       if (!youHaveMoved || state.result.status !== 'in-progress') {
         await get().newGame(options);
         return;
@@ -1239,14 +1364,40 @@ export const useGameStore = create<GameStore>((set, get) => {
     },
 
     async newGame(options = {}) {
-      const playerColor = options.playerColor ?? get().playerColor;
-      const opponentElo = options.opponentElo ?? get().opponentElo;
+      const current = get();
+      const mode = options.mode ?? current.mode;
+      const playerColor = options.playerColor ?? current.playerColor;
+      const opponentElo = options.opponentElo ?? current.opponentElo;
+      const timeControl =
+        options.timeControl === undefined ? current.timeControl : options.timeControl;
+
+      // Switching modes moves the coach with it: off for a friend game, and
+      // back to whatever it was for the computer.
+      let coachEnabled = current.coachEnabled;
+      if (mode !== current.mode) {
+        if (mode === 'friend') {
+          computerCoachEnabled = current.coachEnabled;
+          coachEnabled = false;
+        } else {
+          coachEnabled = computerCoachEnabled;
+        }
+      }
+
+      savePlaySetup({ mode, timeControl });
 
       await resetTo(
         () => {
           game = new Chess();
         },
-        { playerColor, opponentElo, boardOrientation: playerColor },
+        {
+          mode,
+          timeControl,
+          coachEnabled,
+          playerColor,
+          opponentElo,
+          // A friend game starts from White's side; a computer game from yours.
+          boardOrientation: mode === 'friend' ? 'white' : playerColor,
+        },
       );
     },
 
@@ -1256,7 +1407,7 @@ export const useGameStore = create<GameStore>((set, get) => {
       // Explain Mode halts the game through `isPaused`, so this one check keeps
       // both out.
       if (state.isOpponentThinking || state.isPaused) return false;
-      if (game.turn() !== playerCode(state.playerColor)) return false;
+      if (state.mode !== 'friend' && game.turn() !== playerCode(state.playerColor)) return false;
 
       const fenBefore = game.fen();
       let move: Move;
@@ -1268,6 +1419,16 @@ export const useGameStore = create<GameStore>((set, get) => {
 
       const ply = game.history().length - 1;
       announceMove(move);
+
+      // Fischer increment: the mover is credited the moment their move lands.
+      if (state.timeControl && state.timeControl.incrementMs > 0) {
+        set({
+          clockBonus: {
+            ...state.clockBonus,
+            [move.color]: state.clockBonus[move.color] + state.timeControl.incrementMs,
+          },
+        });
+      }
 
       // The board updates synchronously; coaching catches up asynchronously.
       // This is what keeps the piece drop feeling instant while Stockfish works.
@@ -1327,6 +1488,9 @@ export const useGameStore = create<GameStore>((set, get) => {
       }
 
       if (state.sanHistory.length === 0) return;
+      // Same rule as the disabled button, for the keyboard shortcut: a game lost
+      // on time cannot be rewound back into play.
+      if (state.result.status === 'timeout') return;
       // Matches what the Undo button allows, so the keyboard shortcut — which has
       // no disabled state to respect — behaves identically.
       if (state.isOpponentThinking) return;
@@ -1334,10 +1498,15 @@ export const useGameStore = create<GameStore>((set, get) => {
       // Take back to the player's own turn: their move plus the engine's reply
       // when there is one, so the takeback lands on a position they can move in.
       // `parity` is the history length at which it is the player's turn.
+      // Between friends a takeback is exactly one move: whoever just moved gets
+      // to try again.
       const history = game.history();
       const parity = state.playerColor === 'white' ? 0 : 1;
       const alreadyPlayerTurn = history.length % 2 === parity;
-      const keep = Math.max(0, history.length - (alreadyPlayerTurn ? 2 : 1));
+      const keep =
+        state.mode === 'friend'
+          ? history.length - 1
+          : Math.max(0, history.length - (alreadyPlayerTurn ? 2 : 1));
 
       // Capture what is about to be removed so redo can put it back verbatim.
       const undone: RedoEntry[] = history.slice(keep).map((san, index) => {
@@ -1379,7 +1548,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         remaining.shift();
         if (next.move) restoredMoves.push(next.move);
         restoredFeedback.push(...next.feedback);
-        if (game.turn() === playerCode(state.playerColor)) break;
+        if (state.mode === 'friend' || game.turn() === playerCode(state.playerColor)) break;
       }
 
       set((current) => ({
@@ -1403,6 +1572,10 @@ export const useGameStore = create<GameStore>((set, get) => {
       await startPosition(token);
     },
 
+    setMenuOpen(open) {
+      set({ menuOpen: open });
+    },
+
     canRedo() {
       return get().redoStack.length > 0;
     },
@@ -1419,6 +1592,18 @@ export const useGameStore = create<GameStore>((set, get) => {
     },
 
     resign() {
+      // Between friends it is the player whose turn it is who gives up.
+      if (get().mode === 'friend') {
+        const loser = game.turn();
+        generation += 1;
+        finishGame({
+          status: 'resignation',
+          winner: loser === 'w' ? 'b' : 'w',
+          reason: `${loser === 'w' ? 'White' : 'Black'} resigned.`,
+        });
+        return;
+      }
+
       const winner: Color = get().playerColor === 'white' ? 'b' : 'w';
       generation += 1;
       activeEngine().stop();
@@ -1435,6 +1620,13 @@ export const useGameStore = create<GameStore>((set, get) => {
       // are therefore always set together and never diverge.
       const state = get();
       if (state.isOpponentThinking) return;
+
+      // Between friends both colours are yours, so this only turns the board
+      // round — no side changes hands and nothing needs pausing.
+      if (state.mode === 'friend') {
+        set({ boardOrientation: state.boardOrientation === 'white' ? 'black' : 'white' });
+        return;
+      }
 
       const next: PlayerColor = state.playerColor === 'white' ? 'black' : 'white';
       // Pausing is the point: swapping sides hands the move to the engine, and
@@ -1473,8 +1665,12 @@ export const useGameStore = create<GameStore>((set, get) => {
       }
 
       refreshBriefing();
-      const { result, playerColor } = get();
-      if (result.status === 'in-progress' && game.turn() !== playerCode(playerColor)) {
+      const { result, playerColor, mode } = get();
+      if (
+        mode === 'computer' &&
+        result.status === 'in-progress' &&
+        game.turn() !== playerCode(playerColor)
+      ) {
         await playOpponentMove(generation);
       }
     },
@@ -1500,6 +1696,37 @@ export const useGameStore = create<GameStore>((set, get) => {
       if (w === clock.w && b === clock.b && since === clock.since && side === clock.side) return;
 
       set({ clock: { w, b, since, side } });
+    },
+
+    checkFlag() {
+      const { timeControl, result, clock, clockBonus } = get();
+      if (!timeControl || result.status !== 'in-progress') return;
+
+      const side = game.turn();
+      if (remainingMs(clock, clockBonus, timeControl, side) > 0) return;
+
+      // Bank the final segment and stop, so the readout lands on exactly 0:00.
+      get().syncClock(false);
+      generation += 1;
+
+      const flagged = side === 'w' ? 'White' : 'Black';
+      const other: Color = side === 'w' ? 'b' : 'w';
+      const otherName = other === 'w' ? 'White' : 'Black';
+
+      // Out of time loses — unless the opponent could never have mated anyway.
+      finishGame(
+        cannotMate(game, other)
+          ? {
+              status: 'timeout',
+              winner: null,
+              reason: `${flagged} ran out of time, but ${otherName} cannot checkmate — draw.`,
+            }
+          : {
+              status: 'timeout',
+              winner: other,
+              reason: `${flagged} ran out of time — ${otherName} wins.`,
+            },
+      );
     },
 
     setOpponentElo(elo) {
@@ -1974,6 +2201,9 @@ function persistenceKey(state: GameStore): string {
     // tick would rewrite the whole game to storage several times a minute. At
     // worst a reload loses the last few seconds of thinking time.
     Math.floor((state.clock.w + state.clock.b) / CLOCK_PERSIST_BUCKET_MS),
+    state.mode,
+    state.timeControl ? `${state.timeControl.baseMs}+${state.timeControl.incrementMs}` : 'none',
+    state.clockBonus.w + state.clockBonus.b,
     state.playerColor,
     state.boardOrientation,
     state.opponentElo,
@@ -2001,6 +2231,9 @@ useGameStore.subscribe((state) => {
   }
 
   saveGame({
+    mode: state.mode,
+    timeControl: state.timeControl,
+    clockBonus: state.clockBonus,
     startFen: state.startFen,
     sanMoves: state.sanHistory,
     playerColor: state.playerColor,

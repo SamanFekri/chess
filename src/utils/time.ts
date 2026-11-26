@@ -27,3 +27,19 @@ export function describeDuration(ms: number): string {
     ? minutePart
     : `${minutePart} ${seconds} second${seconds === 1 ? '' : 's'}`;
 }
+
+/**
+ * A count-down clock readout.
+ *
+ * Rounds up, the way a chess clock does: "0:01" is showing for the whole of the
+ * last second, and "0:00" appears only when the time is really gone. Under ten
+ * seconds it shows tenths, which is when they start to matter.
+ */
+export function formatCountdown(ms: number): string {
+  const clamped = Math.max(0, ms);
+  if (clamped < 10_000 && clamped > 0) {
+    const tenths = Math.ceil(clamped / 100);
+    return `0:0${Math.floor(tenths / 10)}.${tenths % 10}`;
+  }
+  return formatDuration(Math.ceil(clamped / 1000) * 1000);
+}

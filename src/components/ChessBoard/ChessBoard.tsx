@@ -32,6 +32,7 @@ export const ChessBoard = memo(function ChessBoard() {
   const viewingPly = useGameStore((state) => state.viewingPly);
   const orientation = useGameStore((state) => state.boardOrientation);
   const playerColor = useGameStore((state) => state.playerColor);
+  const mode = useGameStore((state) => state.mode);
   const result = useGameStore((state) => state.result);
   const isOpponentThinking = useGameStore((state) => state.isOpponentThinking);
   const hint = useGameStore((state) => state.hint);
@@ -71,7 +72,8 @@ export const ChessBoard = memo(function ChessBoard() {
     !isPaused &&
     result.status === 'in-progress' &&
     !isOpponentThinking &&
-    turn === playerColor;
+    // Between friends whoever is to move may move.
+    (mode === 'friend' || turn === playerColor);
 
   const { onSquareClick, onPieceDrop, onPieceDrag, squareStyles, dangerNote } =
     useBoardInteraction(interactive);

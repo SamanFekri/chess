@@ -20,18 +20,31 @@ export const NewGameConfirm = memo(function NewGameConfirm() {
   const moves = useGameStore((state) => state.moves);
   const playerColor = useGameStore((state) => state.playerColor);
 
-  const yourMoves = moves.filter(
-    (move) => move.color === (playerColor === 'white' ? 'w' : 'b'),
-  ).length;
+  const mode = useGameStore((state) => state.mode);
+
+  const yourMoves =
+    mode === 'friend'
+      ? moves.length
+      : moves.filter((move) => move.color === (playerColor === 'white' ? 'w' : 'b')).length;
 
   // A colour change is also a new game, and worth naming so the prompt matches
   // the button that was actually pressed.
   const switchingTo = pending?.playerColor;
+  const title =
+    pending?.mode && pending.mode !== mode
+      ? pending.mode === 'friend'
+        ? 'Play a friend instead?'
+        : 'Play the computer instead?'
+      : pending?.timeControl !== undefined
+        ? 'Start a new game with this clock?'
+        : switchingTo
+          ? `Start a new game as ${switchingTo}?`
+          : 'Start a new game?';
 
   return (
     <ConfirmDialog
       open={pending !== null}
-      title={switchingTo ? `Start a new game as ${switchingTo}?` : 'Start a new game?'}
+      title={title}
       message={
         <>
           Your current game will be lost — {yourMoves} move{yourMoves === 1 ? '' : 's'} played.
