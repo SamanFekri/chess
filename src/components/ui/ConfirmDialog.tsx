@@ -48,7 +48,7 @@ export function ConfirmDialog({
     <AnimatePresence>
       {open && (
         <div
-          className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/80 p-3 backdrop-blur-sm sm:items-center"
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/60 p-3 sm:items-center"
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-title"
@@ -59,7 +59,7 @@ export function ConfirmDialog({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-            className="w-full max-w-sm rounded-2xl border border-slate-700/80 bg-slate-900 p-5 shadow-2xl"
+            className="glass glass-thick w-full max-w-sm rounded-3xl p-5 shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <h2 id="confirm-title" className="text-base font-bold text-slate-100">

@@ -5,6 +5,7 @@ import type { PlayedMove } from '../../types';
 import { formatScore } from '../../utils/score';
 import { explainSan, NOTATION_LEGEND } from '../../utils/notation';
 import { Panel } from '../ui/Panel';
+import { QualityIcon } from '../ui/QualityIcon';
 
 /** One clickable half-move, showing its verdict icon and resulting evaluation. */
 function MoveCell({ move, isActive }: { move: PlayedMove | null; isActive: boolean }) {
@@ -32,9 +33,9 @@ function MoveCell({ move, isActive }: { move: PlayedMove | null; isActive: boole
       aria-pressed={isActive}
     >
       <span className="font-mono font-medium text-slate-200">{move.san}</span>
-      {style && (
-        <span className={`text-xs ${style.text}`} title={style.label} aria-hidden>
-          {style.icon}
+      {style && move.quality && (
+        <span className={style.text} title={style.label} aria-hidden>
+          <QualityIcon quality={move.quality} className="h-3 w-3" strokeWidth={2.75} />
         </span>
       )}
       {evaluation && (

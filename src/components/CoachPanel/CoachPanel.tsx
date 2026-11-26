@@ -8,6 +8,14 @@ import { explainSan } from '../../utils/notation';
 import { formatScore } from '../../utils/score';
 import { InfoRow, Panel } from '../ui/Panel';
 import { Switch } from '../ui/Switch';
+import { QualityIcon } from '../ui/QualityIcon';
+import {
+  AlertTriangleIcon,
+  ArrowRightIcon,
+  CheckIcon,
+  CloseIcon,
+  LightbulbIcon,
+} from '../ui/icons';
 
 /**
  * How much unprompted advice the coach gives.
@@ -42,10 +50,10 @@ function TipLevelControl() {
 }
 
 /** Icon shown next to an insight, by tone. */
-const TONE_ICON: Record<Insight['tone'], string> = {
-  good: '✓',
-  bad: '⚠',
-  neutral: '→',
+const TONE_ICON: Record<Insight['tone'], typeof CheckIcon> = {
+  good: CheckIcon,
+  bad: AlertTriangleIcon,
+  neutral: ArrowRightIcon,
 };
 
 const TONE_COLOR: Record<Insight['tone'], string> = {
@@ -69,7 +77,10 @@ const FeedbackCard = memo(function FeedbackCard({ feedback }: { feedback: CoachF
       }`}
     >
       <div className="flex items-start justify-between gap-2">
-        <h3 className={`text-sm font-bold ${style ? style.text : 'text-slate-300'}`}>
+        <h3
+          className={`flex items-center gap-1.5 text-sm font-bold ${style ? style.text : 'text-slate-300'}`}
+        >
+          {feedback.quality && <QualityIcon quality={feedback.quality} />}
           {feedback.headline}
         </h3>
         <span
@@ -87,14 +98,16 @@ const FeedbackCard = memo(function FeedbackCard({ feedback }: { feedback: CoachF
 
       {feedback.insights.length > 0 && (
         <ul className="mt-2.5 space-y-1.5">
-          {feedback.insights.map((insight, index) => (
-            <li key={`${insight.kind}-${index}`} className="flex gap-2 text-[0.8rem] leading-relaxed">
-              <span className={`shrink-0 ${TONE_COLOR[insight.tone]}`} aria-hidden>
-                {TONE_ICON[insight.tone]}
-              </span>
-              <span className="text-slate-400">{insight.text}</span>
-            </li>
-          ))}
+          {feedback.insights.map((insight, index) => {
+            const Icon = TONE_ICON[insight.tone];
+            return (
+              <li key={`${insight.kind}-${index}`} className="flex gap-2 text-[0.8rem] leading-relaxed">
+                {/* Nudged down to sit on the first line's x-height, not its top. */}
+                <Icon className={`mt-[0.2rem] h-3.5 w-3.5 shrink-0 ${TONE_COLOR[insight.tone]}`} />
+                <span className="text-slate-400">{insight.text}</span>
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -143,16 +156,16 @@ function HintCard() {
       className="rounded-xl border border-emerald-400/40 bg-emerald-500/10 p-3"
     >
       <div className="flex items-start justify-between gap-2">
-        <h3 className="text-sm font-bold text-emerald-300">
-          💡 Try {hint.suggestion.san}
+        <h3 className="flex items-center gap-1.5 text-sm font-bold text-emerald-300">
+          <LightbulbIcon className="h-4 w-4" /> Try {hint.suggestion.san}
         </h3>
         <button
           type="button"
           onClick={dismissHint}
-          className="rounded-md px-1.5 text-slate-400 transition-colors hover:text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+          className="relative -m-1 grid h-7 w-7 place-items-center rounded-full text-slate-400 transition-[color,background-color] duration-150 after:absolute after:-inset-2 after:content-[''] hover:bg-white/10 hover:text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
           aria-label="Dismiss hint"
         >
-          ✕
+          <CloseIcon className="h-3.5 w-3.5" />
         </button>
       </div>
       <p className="mt-1.5 text-sm leading-relaxed text-emerald-100/85">{hint.explanation}</p>
@@ -320,7 +333,7 @@ export const CoachPanel = memo(function CoachPanel() {
               checked={dangerMode}
               onChange={setDangerMode}
               label="Danger"
-              description="Mark the moves that lose material: ⚠ the piece you picked up can be taken there, ⊕ moving there costs you a piece elsewhere"
+              description="Mark the moves that lose material: a warning triangle where the piece you picked up can be taken, a crosshair where moving costs you a piece elsewhere"
               labelClassName="text-[0.65rem]"
               size="sm"
             />

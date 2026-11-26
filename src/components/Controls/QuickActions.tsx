@@ -4,8 +4,10 @@ import { modifierKeyLabel } from '../../utils/platform';
 import { Button } from '../ui/Button';
 import {
   FlipIcon,
+  LightbulbIcon,
   NewGameIcon,
   PauseIcon,
+  PencilIcon,
   PlayIcon,
   RedoIcon,
   UndoIcon,
@@ -70,7 +72,7 @@ export const QuickActions = memo(function QuickActions() {
               ? `Remove the last thing you drew (${modifierKeyLabel()}+Z). Press again to remove the one before it.`
               : `Take back your last move (${modifierKeyLabel()}+Z). Press repeatedly to go further back.`
           }
-          className="min-h-12"
+          className="min-h-12 max-[359px]:text-[0.8rem] max-[359px]:[&>svg]:hidden"
         >
           <UndoIcon /> {hasInk ? 'Rub out' : 'Undo'}
         </Button>
@@ -80,7 +82,7 @@ export const QuickActions = memo(function QuickActions() {
           onClick={() => void redoMove()}
           disabled={redoCount === 0 || isOpponentThinking}
           title={`Replay a taken-back move (${modifierKeyLabel()}+Shift+Z)`}
-          className="min-h-12"
+          className="min-h-12 max-[359px]:text-[0.8rem] max-[359px]:[&>svg]:hidden"
         >
           <RedoIcon /> Redo
           {redoCount > 0 && (
@@ -96,9 +98,9 @@ export const QuickActions = memo(function QuickActions() {
             onClick={() => (hint ? dismissHint() : void requestHint())}
             disabled={!isPlayerTurn || isHintLoading}
             aria-pressed={hint !== null}
-            className="min-h-12"
+            className="min-h-12 max-[359px]:text-[0.8rem] max-[359px]:[&>svg]:hidden"
           >
-            <span aria-hidden>💡</span>{' '}
+            <LightbulbIcon />
             {isHintLoading ? 'Thinking…' : hint ? 'Hide hint' : 'Hint'}
           </Button>
         )}
@@ -115,14 +117,14 @@ export const QuickActions = memo(function QuickActions() {
               ? 'Put the pen down and play on — your drawings are cleared'
               : 'Stop the game and draw on the board: drag between squares for an arrow, tap a square to ring it'
           }
-          className="min-h-12"
+          className="min-h-12 max-[359px]:text-[0.8rem] max-[359px]:[&>svg]:hidden"
         >
-          <span aria-hidden>✏️</span> {drawMode ? 'Done' : 'Explain'}
+          <PencilIcon /> {drawMode ? 'Done' : 'Explain'}
         </Button>
       </div>
 
       <div className="grid grid-cols-3 gap-2">
-        <Button variant="secondary" onClick={() => void requestNewGame()} className="min-h-12">
+        <Button variant="secondary" onClick={() => void requestNewGame()} className="min-h-12 max-[359px]:text-[0.8rem] max-[359px]:[&>svg]:hidden">
           <NewGameIcon /> New game
         </Button>
 
@@ -132,7 +134,7 @@ export const QuickActions = memo(function QuickActions() {
           onClick={() => void flipBoard()}
           disabled={isOpponentThinking}
           title="Swap sides — you play the colour at the bottom of the board"
-          className="min-h-12"
+          className="min-h-12 max-[359px]:text-[0.8rem] max-[359px]:[&>svg]:hidden"
         >
           <FlipIcon /> Flip
         </Button>
@@ -147,7 +149,7 @@ export const QuickActions = memo(function QuickActions() {
           title={
             isPaused ? 'Resume play' : 'Pause the game — neither side moves until you resume'
           }
-          className="min-h-12"
+          className="min-h-12 max-[359px]:text-[0.8rem] max-[359px]:[&>svg]:hidden"
         >
           {isPaused ? (
             <>

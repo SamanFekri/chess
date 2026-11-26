@@ -2,6 +2,8 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { QUALITY_STYLES } from '../../engine/analysis';
 import { useGameStore } from '../../store/gameStore';
+import { QualityIcon } from '../ui/QualityIcon';
+import { LightbulbIcon, StarIcon } from '../ui/icons';
 
 /** Accent colour of the cloud's outline glow, by what the cloud is saying. */
 const GLOW = {
@@ -19,9 +21,17 @@ const TIP_DWELL_MS = 13000;
 
 /** Icon and text colour for each kind of advice. */
 const TIP_STYLE = {
-  warn: { icon: '!', text: 'text-amber-300', hex: '#fbbf24' },
-  chance: { icon: '★', text: 'text-emerald-300', hex: '#34d399' },
-  idea: { icon: '?', text: 'text-blue-300', hex: '#60a5fa' },
+  warn: {
+    icon: <QualityIcon quality="great" className="h-3.5 w-3.5" strokeWidth={3} />,
+    text: 'text-amber-300',
+    hex: '#fbbf24',
+  },
+  chance: { icon: <StarIcon className="h-3.5 w-3.5" />, text: 'text-emerald-300', hex: '#34d399' },
+  idea: {
+    icon: <LightbulbIcon className="h-3.5 w-3.5" />,
+    text: 'text-blue-300',
+    hex: '#60a5fa',
+  },
 } as const;
 
 /**
@@ -155,7 +165,7 @@ export const CoachBubble = memo(function CoachBubble() {
               className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-sm font-black text-slate-950"
               style={{ backgroundColor: style.hex }}
             >
-              {style.icon}
+              <QualityIcon quality="blunder" className="h-4 w-4" strokeWidth={2.75} />
             </span>
             <p className={`text-sm font-bold leading-tight ${style.text}`}>{style.label}</p>
             <span className="ml-auto rounded-md bg-white/5 px-1.5 py-0.5 font-mono text-[0.7rem] font-medium text-slate-300">

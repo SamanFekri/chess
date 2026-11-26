@@ -7,6 +7,8 @@ import type { MoveQuality, SideReview } from '../../types';
 import { buildPgn, downloadText } from '../../utils/pgn';
 import { describeDuration } from '../../utils/time';
 import { Button } from '../ui/Button';
+import { QualityIcon } from '../ui/QualityIcon';
+import { ArrowRightIcon, CloseIcon, DownloadIcon, NewGameIcon } from '../ui/icons';
 
 /** Quality labels shown in the breakdown, in the order they are listed. */
 const BREAKDOWN: MoveQuality[] = [
@@ -55,7 +57,7 @@ function Breakdown({ review }: { review: SideReview }) {
         return (
           <li key={quality} className="flex items-center justify-between gap-2 text-sm">
             <span className={`flex items-center gap-1.5 ${style.text}`}>
-              <span aria-hidden>{style.icon}</span>
+              <QualityIcon quality={quality} />
               <span className="text-slate-400">{style.label}</span>
             </span>
             <span className="font-mono font-semibold tabular-nums text-slate-200">
@@ -99,7 +101,7 @@ export const GameReview = memo(function GameReview() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/80 p-3 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 p-3 sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-labelledby="review-title"
@@ -108,7 +110,7 @@ export const GameReview = memo(function GameReview() {
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-        className="max-h-[92vh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-2xl border border-slate-700/80 bg-slate-900 p-5 shadow-2xl"
+        className="glass glass-thick max-h-[92vh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-3xl p-5 shadow-2xl"
       >
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -123,9 +125,9 @@ export const GameReview = memo(function GameReview() {
             type="button"
             onClick={dismissReview}
             aria-label="Close review"
-            className="shrink-0 rounded-lg px-2 py-1 text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400"
+            className="glass-control grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-300 transition-[color,transform] duration-150 ease-out hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 active:scale-[0.94]"
           >
-            ✕
+            <CloseIcon />
           </button>
         </div>
 
@@ -188,8 +190,11 @@ export const GameReview = memo(function GameReview() {
                   key={moment.ply}
                   className={`rounded-lg border px-3 py-2 text-sm text-slate-300 ${QUALITY_STYLES[moment.quality].border} bg-slate-950/50`}
                 >
-                  <span className={`mr-1.5 font-semibold ${QUALITY_STYLES[moment.quality].text}`}>
-                    {QUALITY_STYLES[moment.quality].icon} {QUALITY_STYLES[moment.quality].label}
+                  <span
+                    className={`mr-1.5 inline-flex items-center gap-1 align-[-0.15em] font-semibold ${QUALITY_STYLES[moment.quality].text}`}
+                  >
+                    <QualityIcon quality={moment.quality} />
+                    {QUALITY_STYLES[moment.quality].label}
                   </span>
                   {moment.summary}
                 </li>
@@ -204,9 +209,7 @@ export const GameReview = memo(function GameReview() {
           <ul className="mt-2 space-y-2">
             {review.advice.map((item) => (
               <li key={item} className="flex gap-2 text-sm leading-relaxed text-slate-300">
-                <span aria-hidden className="shrink-0 text-blue-400">
-                  →
-                </span>
+                <ArrowRightIcon className="mt-[0.2rem] h-4 w-4 shrink-0 text-blue-400" />
                 {item}
               </li>
             ))}
@@ -220,7 +223,7 @@ export const GameReview = memo(function GameReview() {
             onClick={() => void newGame()}
             className="flex-1 basis-40"
           >
-            ↻ Play again
+            <NewGameIcon /> Play again
           </Button>
           <Button
             variant="ghost"
@@ -232,7 +235,7 @@ export const GameReview = memo(function GameReview() {
             }
             className="flex-1 basis-40"
           >
-            ⬇ Download PGN
+            <DownloadIcon /> Download PGN
           </Button>
           <Button variant="ghost" onClick={dismissReview} className="flex-1 basis-32">
             Review the board

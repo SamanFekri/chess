@@ -27,7 +27,7 @@ import {
   withTurn,
 } from '../utils/chess';
 import { describeAdvantage, negate, scoreWinPercent, toWhitePov } from '../utils/score';
-import { isMistakeLike, QUALITY_STYLES, type Classification } from './analysis';
+import { isMistakeLike, type Classification } from './analysis';
 
 /**
  * Turns engine numbers and board geometry into plain-English coaching.
@@ -451,7 +451,7 @@ export function coachPlayerMove(input: PlayerMoveCoachingInput): CoachFeedback {
     by: 'player',
     san: move.san,
     quality,
-    headline: `${QUALITY_STYLES[quality].icon} ${HEADLINES[quality]}`,
+    headline: HEADLINES[quality],
     body: parts.join(' '),
     insights,
     suggestions: suggestions.filter((s) => s.san !== move.san),

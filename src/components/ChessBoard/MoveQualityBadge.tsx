@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { QUALITY_STYLES } from '../../engine/analysis';
 import { useGameStore } from '../../store/gameStore';
 import type { MoveQuality, PlayerColor } from '../../types';
+import { QualityGlyph } from '../ui/QualityIcon';
 
 /** Badge width as a percentage of the board's width (a square is 12.5%). */
 const BADGE_SIZE_PERCENT = 5.6;
@@ -109,17 +110,19 @@ export const MoveQualityBadge = memo(function MoveQualityBadge() {
           legible on a phone and does not balloon on a large desktop board. */}
       <svg viewBox="0 0 24 24" className="h-full w-full">
         <circle cx="12" cy="12" r="11" fill={style.hex} stroke="#020617" strokeWidth="1.6" />
-        <text
-          x="12"
-          y="12.5"
-          textAnchor="middle"
-          dominantBaseline="central"
-          fontSize="13"
-          fontWeight="700"
-          fill="#020617"
+        {/* Drawn glyph, scaled into the disc. `color` feeds `currentColor`
+            for the filled dots and star inside the glyph. */}
+        <g
+          transform="translate(12 12) scale(0.68) translate(-12 -12)"
+          fill="none"
+          stroke="#020617"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          color="#020617"
         >
-          {style.icon}
-        </text>
+          <QualityGlyph quality={target.quality} />
+        </g>
       </svg>
     </motion.div>
   );

@@ -60,7 +60,6 @@ export type MoveQuality =
 /** Presentation metadata for a {@link MoveQuality}. */
 export interface QualityStyle {
   label: string;
-  icon: string;
   /** Tailwind text colour class. */
   text: string;
   /** Tailwind background class for chips. */

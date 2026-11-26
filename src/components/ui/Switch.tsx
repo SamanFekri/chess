@@ -11,6 +11,7 @@ export function Switch({
   label,
   description,
   labelClassName = '',
+  className = '',
   size = 'md',
 }: {
   checked: boolean;
@@ -24,6 +25,8 @@ export function Switch({
    * text costs nothing for screen readers.
    */
   labelClassName?: string;
+  /** Extra classes for the button itself, e.g. to fit it inside a group. */
+  className?: string;
   /**
    * `sm` for switches that sit inside a panel header alongside other controls,
    * where a full-size track dominates a row it is only a corner of. The tap
@@ -41,8 +44,8 @@ export function Switch({
       aria-label={description ? `${label}. ${description}` : label}
       onClick={() => onChange(!checked)}
       className={`group inline-flex items-center rounded-xl transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 ${
-        small ? 'min-h-8 shrink-0 gap-1 px-0' : 'min-h-11 gap-2.5 px-1'
-      }`}
+        small ? 'min-h-8 shrink-0 gap-1 px-0' : 'min-h-11 gap-2 px-1 sm:gap-2.5'
+      } ${className}`}
     >
       {/* Compact on phones so the header stays on one line, full size from `sm`. */}
       <span

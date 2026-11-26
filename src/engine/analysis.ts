@@ -147,7 +147,6 @@ function gradeQuality(facts: {
 export const QUALITY_STYLES: Record<MoveQuality, QualityStyle> = {
   brilliant: {
     label: 'Brilliant',
-    icon: '‼',
     text: 'text-teal-300',
     chip: 'bg-teal-500/15',
     border: 'border-teal-400/40',
@@ -155,7 +154,6 @@ export const QUALITY_STYLES: Record<MoveQuality, QualityStyle> = {
   },
   great: {
     label: 'Great move',
-    icon: '❗',
     text: 'text-sky-300',
     chip: 'bg-sky-500/15',
     border: 'border-sky-400/40',
@@ -163,7 +161,6 @@ export const QUALITY_STYLES: Record<MoveQuality, QualityStyle> = {
   },
   best: {
     label: 'Best move',
-    icon: '★',
     text: 'text-emerald-300',
     chip: 'bg-emerald-500/15',
     border: 'border-emerald-400/40',
@@ -171,7 +168,6 @@ export const QUALITY_STYLES: Record<MoveQuality, QualityStyle> = {
   },
   excellent: {
     label: 'Excellent',
-    icon: '✓',
     text: 'text-emerald-300',
     chip: 'bg-emerald-500/10',
     border: 'border-emerald-400/30',
@@ -179,7 +175,6 @@ export const QUALITY_STYLES: Record<MoveQuality, QualityStyle> = {
   },
   good: {
     label: 'Good',
-    icon: '✓',
     text: 'text-slate-200',
     chip: 'bg-slate-500/15',
     border: 'border-slate-400/30',
@@ -187,7 +182,6 @@ export const QUALITY_STYLES: Record<MoveQuality, QualityStyle> = {
   },
   book: {
     label: 'Book',
-    icon: '📖',
     text: 'text-indigo-300',
     chip: 'bg-indigo-500/15',
     border: 'border-indigo-400/30',
@@ -195,7 +189,6 @@ export const QUALITY_STYLES: Record<MoveQuality, QualityStyle> = {
   },
   inaccuracy: {
     label: 'Inaccuracy',
-    icon: '⚠',
     text: 'text-amber-300',
     chip: 'bg-amber-500/15',
     border: 'border-amber-400/40',
@@ -203,7 +196,6 @@ export const QUALITY_STYLES: Record<MoveQuality, QualityStyle> = {
   },
   mistake: {
     label: 'Mistake',
-    icon: '✖',
     text: 'text-orange-300',
     chip: 'bg-orange-500/15',
     border: 'border-orange-400/40',
@@ -211,7 +203,6 @@ export const QUALITY_STYLES: Record<MoveQuality, QualityStyle> = {
   },
   blunder: {
     label: 'Blunder',
-    icon: '⨯',
     text: 'text-red-300',
     chip: 'bg-red-500/15',
     border: 'border-red-400/40',

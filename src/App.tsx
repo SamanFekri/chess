@@ -129,7 +129,7 @@ export default function App() {
         </section>
 
         {/* Coach — under the board on mobile, sticky sidebar on desktop. */}
-        <aside className="lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:sticky lg:top-4">
+        <aside className="lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:sticky lg:top-[4.75rem]">
           <CoachPanel />
         </aside>
 

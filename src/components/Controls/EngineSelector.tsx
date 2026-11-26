@@ -2,6 +2,7 @@ import { memo, useId, type ReactNode } from 'react';
 import { ENGINES } from '../../engine/catalogue';
 import type { EngineDefinition, EngineSettings, SettingRange } from '../../engine/types';
 import { useGameStore } from '../../store/gameStore';
+import { ChevronDownIcon } from '../ui/icons';
 
 /**
  * Picking the engine that does the analysing.
@@ -161,9 +162,7 @@ function EngineSettingsPanel({
     <details className="mt-2 rounded-lg border border-slate-800/80 bg-slate-950/40">
       <summary className="cursor-pointer list-none px-3 py-2 text-xs font-semibold text-slate-400 transition-colors hover:text-slate-200">
         Engine settings
-        <span aria-hidden className="float-right text-slate-600">
-          ▾
-        </span>
+        <ChevronDownIcon className="float-right mt-0.5 h-3.5 w-3.5 text-slate-600" />
       </summary>
 
       <div className="space-y-3 border-t border-slate-800/80 px-3 py-3">

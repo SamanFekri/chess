@@ -14,6 +14,7 @@ import type { PlayerColor } from '../../types';
 import { buildPgn, copyToClipboard, downloadText } from '../../utils/pgn';
 import { GLYPH_TINT, PIECE_GLYPH } from '../../utils/pieceGlyphs';
 import { Button } from '../ui/Button';
+import { ChevronDownIcon, DownloadIcon, FlagIcon, PencilIcon } from '../ui/icons';
 import { EngineSelector } from './EngineSelector';
 import { Panel } from '../ui/Panel';
 
@@ -173,10 +174,10 @@ function ColorChoice() {
           type="button"
           onClick={() => void requestNewGame({ playerColor: option.value })}
           aria-pressed={playerColor === option.value}
-          className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 ${
+          className={`flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-[background-color,color,transform] duration-150 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 active:scale-[0.97] ${
             playerColor === option.value
-              ? 'bg-blue-500 text-white'
-              : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              ? 'glass-prominent bg-blue-500 text-white'
+              : 'glass-control text-slate-300'
           }`}
         >
           <span aria-hidden className={`text-lg leading-none ${GLYPH_TINT[option.icon]}`}>
@@ -334,9 +335,9 @@ function TransferPanel() {
         className="flex min-h-11 w-full items-center justify-between rounded-xl px-1 text-sm font-semibold text-slate-300 transition-colors hover:text-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400"
       >
         Import / export
-        <span aria-hidden className={`transition-transform ${open ? 'rotate-180' : ''}`}>
-          ⌄
-        </span>
+        <ChevronDownIcon
+          className={`h-4 w-4 text-slate-500 transition-transform duration-200 ease-out ${open ? 'rotate-180' : ''}`}
+        />
       </button>
 
       {open && (
@@ -353,7 +354,7 @@ function TransferPanel() {
               onClick={() => downloadText('shatranj-ai.pgn', pgn())}
               className="col-span-2"
             >
-              ⬇ Download PGN
+              <DownloadIcon /> Download PGN
             </Button>
           </div>
 
@@ -413,10 +414,10 @@ export const Controls = memo(function Controls() {
           lives in the header — all reachable without scrolling to this panel. */}
       <div className="grid grid-cols-2 gap-2">
         <Button variant="ghost" onClick={enterEditMode}>
-          ✎ Set up board
+          <PencilIcon /> Set up board
         </Button>
         <Button variant="danger" onClick={resign} disabled={!inProgress || moves.length === 0}>
-          🏳 Resign
+          <FlagIcon /> Resign
         </Button>
       </div>
 

@@ -21,10 +21,10 @@ export function Panel({
 }) {
   return (
     <section
-      className={`overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-900/60 shadow-lg shadow-slate-950/30 backdrop-blur ${className}`}
+      className={`material overflow-hidden rounded-2xl ring-1 ring-inset ring-white/[0.06] ${className}`}
     >
       {title && (
-        <header className="flex items-center justify-between gap-2 border-b border-slate-800/70 px-4 py-3">
+        <header className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-4 py-3">
           {/* `min-w-0` so a long title gives way to the controls beside it
               rather than pushing them onto a second line. */}
           <h2 className="min-w-0 text-sm font-semibold tracking-wide text-slate-200">{title}</h2>

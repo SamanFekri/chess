@@ -5,7 +5,7 @@ import { PIECE_NAME } from '../../utils/chess';
 import { GLYPH_TINT, PIECE_GLYPH } from '../../utils/pieceGlyphs';
 import { Button } from '../ui/Button';
 import { Panel } from '../ui/Panel';
-import { TrashIcon } from '../ui/icons';
+import { PencilIcon, PlayIcon, TrashIcon } from '../ui/icons';
 
 /** Palette order — most-used pieces first. */
 const PIECES: PieceSymbol[] = ['q', 'r', 'b', 'n', 'p', 'k'];
@@ -119,7 +119,7 @@ export const PositionEditor = memo(function PositionEditor() {
     <Panel
       title={
         <span className="flex items-center gap-2">
-          <span aria-hidden>✎</span> Set up a position
+          <PencilIcon className="h-3.5 w-3.5 text-slate-400" /> Set up a position
         </span>
       }
       bodyClassName="space-y-3 px-4 py-3"
@@ -203,7 +203,7 @@ export const PositionEditor = memo(function PositionEditor() {
           Cancel
         </Button>
         <Button variant="success" onClick={() => void start()}>
-          ▶ Start game
+          <PlayIcon className="h-3.5 w-3.5" /> Start game
         </Button>
       </div>
 

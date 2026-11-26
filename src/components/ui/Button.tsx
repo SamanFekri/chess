@@ -2,17 +2,22 @@ import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 
+/**
+ * Secondary and ghost are panes of glass; primary, danger and success are
+ * tinted glass — the colour goes on the background, not the label, which is how
+ * the platform marks the one action that matters (`liquid-glass.md › Color on
+ * glass`). Keep tinted buttons to one or two in view.
+ */
 const VARIANTS: Record<Variant, string> = {
   primary:
-    'bg-blue-500 text-white hover:bg-blue-400 focus-visible:outline-blue-400 disabled:hover:bg-blue-500',
-  secondary:
-    'bg-slate-800 text-slate-100 hover:bg-slate-700 focus-visible:outline-slate-400 disabled:hover:bg-slate-800',
+    'glass-prominent bg-blue-500 text-white [--prominent-glow:rgb(59_130_246/0.6)] hover:bg-blue-400 focus-visible:outline-blue-400 disabled:hover:bg-blue-500',
+  secondary: 'glass-control text-slate-100 focus-visible:outline-slate-300',
   ghost:
-    'bg-transparent text-slate-300 ring-1 ring-inset ring-slate-700 hover:bg-slate-800/70 focus-visible:outline-slate-400',
+    'bg-transparent text-slate-300 ring-1 ring-inset ring-white/10 hover:bg-white/[0.06] hover:text-slate-100 focus-visible:outline-slate-300',
   danger:
-    'bg-red-500/90 text-white hover:bg-red-500 focus-visible:outline-red-400 disabled:hover:bg-red-500/90',
+    'glass-prominent bg-red-500/90 text-white [--prominent-glow:rgb(239_68_68/0.5)] hover:bg-red-500 focus-visible:outline-red-400 disabled:hover:bg-red-500/90',
   success:
-    'bg-emerald-500 text-slate-950 hover:bg-emerald-400 focus-visible:outline-emerald-300 disabled:hover:bg-emerald-500',
+    'glass-prominent bg-emerald-500 text-slate-950 [--prominent-glow:rgb(16_185_129/0.55)] hover:bg-emerald-400 focus-visible:outline-emerald-300 disabled:hover:bg-emerald-500',
 };
 
 /**
@@ -20,6 +25,10 @@ const VARIANTS: Record<Variant, string> = {
  *
  * `min-h-11` is not decorative: it keeps every control at or above the ~44px
  * touch target that phone use requires, which is also comfortable with a mouse.
+ *
+ * Presses scale to 0.97 so the button visibly gives under the finger. Only
+ * colour and transform transition, and only for 150ms: these are pressed on
+ * every move, so anything slower would feel like lag.
  */
 export function Button({
   variant = 'secondary',
@@ -37,7 +46,7 @@ export function Button({
     <button
       ref={ref}
       type="button"
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3.5 text-sm font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-45 ${VARIANTS[variant]} ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 text-sm font-semibold sm:gap-2 sm:px-3.5 [&>svg]:shrink-0 transition-[background-color,color,transform] duration-150 ease-out [-webkit-tap-highlight-color:transparent] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 enabled:active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-45 ${VARIANTS[variant]} ${className}`}
       {...props}
     >
       {children}

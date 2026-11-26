@@ -3,6 +3,15 @@ import { AnimatePresence, motion } from 'framer-motion';
 import type { ExplainStep } from '../../types';
 import { useGameStore } from '../../store/gameStore';
 import { LEGEND_ORDER, ROLE_STYLES } from './explainStyles';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CloseIcon,
+  GraduationCapIcon,
+  PauseIcon,
+  PlayIcon,
+  ReplayIcon,
+} from '../ui/icons';
 
 /**
  * The teacher's voice-over: the caption strip and transport above the board.
@@ -66,7 +75,7 @@ function ControlButton({
       disabled={disabled}
       aria-label={label}
       title={label}
-      className="grid h-7 w-7 place-items-center rounded-md text-slate-300 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:text-slate-600 disabled:hover:bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-emerald-300"
+      className="grid h-7 w-7 place-items-center rounded-md text-slate-300 transition-[background-color,color,transform] duration-150 ease-out enabled:active:scale-[0.92] hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:text-slate-600 disabled:hover:bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-emerald-300"
     >
       {children}
     </button>
@@ -165,9 +174,7 @@ export const ExplainOverlay = memo(function ExplainOverlay() {
       aria-label="Coach explanation"
     >
         <div className="flex items-center gap-2">
-          <span aria-hidden className="text-sm">
-            🎓
-          </span>
+          <GraduationCapIcon className="h-4 w-4 shrink-0 text-emerald-300" />
           <p className="min-w-0 flex-1 truncate text-[0.7rem] font-bold uppercase tracking-[0.08em] text-emerald-300">
             {explanation.title}
           </p>
@@ -197,24 +204,24 @@ export const ExplainOverlay = memo(function ExplainOverlay() {
 
         <div className="mt-1.5 flex items-center gap-1 border-t border-white/10 pt-1.5">
           <ControlButton onClick={prevStep} label="Previous step" disabled={index === 0}>
-            ‹
+            <ChevronLeftIcon />
           </ControlButton>
 
           {atEnd ? (
             <ControlButton onClick={replay} label="Play again">
-              ↻
+              <ReplayIcon className="h-3.5 w-3.5" />
             </ControlButton>
           ) : (
             <ControlButton
               onClick={() => setPlaying(!playing)}
               label={playing ? 'Pause the explanation' : 'Play the explanation'}
             >
-              {playing ? '❚❚' : '▶'}
+              {playing ? <PauseIcon className="h-3.5 w-3.5" /> : <PlayIcon className="h-3.5 w-3.5" />}
             </ControlButton>
           )}
 
           <ControlButton onClick={nextStep} label="Next step" disabled={atEnd}>
-            ›
+            <ChevronRightIcon />
           </ControlButton>
 
           {/* Progress doubles as a step picker: the dots are how you skip back to
@@ -263,7 +270,7 @@ export const ExplainOverlay = memo(function ExplainOverlay() {
           </div>
 
           <ControlButton onClick={clear} label="Clear the drawings">
-            ✕
+            <CloseIcon className="h-3.5 w-3.5" />
           </ControlButton>
         </div>
     </motion.div>

@@ -7,7 +7,16 @@ import { GLYPH_TINT, PIECE_GLYPH } from '../../utils/pieceGlyphs';
 import { describeRating, PROVISIONAL_GAMES } from '../../store/rating';
 import type { EngineStatus } from '../../types';
 import { Switch } from '../ui/Switch';
-import { BrandMark, SoundOffIcon, SoundOnIcon } from '../ui/icons';
+import {
+  BrandMark,
+  ClockIcon,
+  PauseIcon,
+  PawnIcon,
+  PencilIcon,
+  PlayIcon,
+  SoundOffIcon,
+  SoundOnIcon,
+} from '../ui/icons';
 
 /**
  * Dot colour and label for each engine state.
@@ -39,12 +48,10 @@ function RatingChip() {
 
   return (
     <span
-      className="flex shrink-0 items-center gap-1 rounded-full bg-slate-900/70 px-2 py-1 text-[0.7rem] ring-1 ring-slate-800 sm:gap-1.5 sm:px-2.5 sm:text-xs"
+      className="flex h-full shrink-0 items-center gap-1 pl-2.5 pr-2 text-xs sm:gap-1.5 sm:pl-3"
       title={describeRating(rating)}
     >
-      <span aria-hidden className="text-slate-500">
-        ♟
-      </span>
+      <PawnIcon className="h-3.5 w-3.5 text-slate-400" />
       <span className="font-semibold text-slate-200" aria-label="Your estimated rating">
         {rating.gamesPlayed === 0 ? 'Unrated' : rating.elo}
       </span>
@@ -80,7 +87,8 @@ function CoachSwitch() {
       onChange={(enabled) => void setCoachEnabled(enabled)}
       label="Coach"
       description="Turn off for a plain game with no coaching, hints or evaluation"
-      labelClassName="text-[0.7rem] sm:text-sm"
+      labelClassName="text-xs sm:text-sm"
+      className="h-full pl-2 pr-3"
     />
   );
 }
@@ -106,10 +114,8 @@ function SoundToggle() {
           ? 'Sound is on — moves, captures, promotions and the result'
           : 'Sound is off'
       }
-      className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ring-1 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 ${
-        soundEnabled
-          ? 'bg-slate-900/70 text-slate-300 ring-slate-800 hover:text-slate-100'
-          : 'bg-slate-900/70 text-slate-600 ring-slate-800 hover:text-slate-400'
+      className={`grid h-full w-9 shrink-0 place-items-center transition-[color,background-color] duration-150 ease-out hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-400 active:bg-white/10 ${
+        soundEnabled ? 'text-slate-200 hover:text-white' : 'text-slate-500 hover:text-slate-300'
       }`}
     >
       {soundEnabled ? <SoundOnIcon /> : <SoundOffIcon />}
@@ -126,11 +132,11 @@ function EngineStatusChip() {
 
   return (
     <div
-      className="flex items-center gap-2 rounded-full bg-slate-900/70 px-2.5 py-1.5 ring-1 ring-slate-800 sm:px-3"
+      className="glass-control hidden h-9 items-center gap-2 rounded-full px-3 sm:flex"
       aria-label={meta.description}
     >
       <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dot}`} aria-hidden />
-      <span className="text-[0.7rem] font-medium text-slate-300 sm:text-xs">{meta.label}</span>
+      <span className="text-xs font-medium text-slate-300">{meta.label}</span>
       {/* Search telemetry is coaching detail — hidden in plain-game mode. */}
       {coachEnabled && analysis && analysis.depth > 0 && (
         <span className="hidden font-mono text-xs text-slate-500 sm:inline" aria-label="Search depth">
@@ -179,9 +185,9 @@ function GameClockReadout() {
         elapsed(them),
       )}. The clock stops when the game is paused or the tab is in the background.`}
     >
-      <span aria-hidden className={running && clock.side === you ? 'text-blue-300' : 'text-slate-600'}>
-        ⏱
-      </span>
+      <ClockIcon
+        className={`h-3.5 w-3.5 ${running && clock.side === you ? 'text-blue-300' : 'text-slate-500'}`}
+      />
       <span
         className={running && clock.side === you ? 'text-slate-200' : 'text-slate-400'}
         aria-label={`Your thinking time: ${describeDuration(elapsed(you))}`}
@@ -268,7 +274,7 @@ export function TurnBar() {
           : 'text-red-300';
 
     return (
-      <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-900/60 px-3 py-2 text-xs font-semibold ring-1 ring-slate-800">
+      <div className="glass flex items-center justify-between gap-2 rounded-2xl px-3 py-2 text-xs font-semibold">
         <span className={tone}>{result.reason}</span>
         <span className="flex items-center gap-3">
           <GameClockReadout />
@@ -289,9 +295,9 @@ export function TurnBar() {
    */
   if (drawMode) {
     return (
-      <div className="flex items-center justify-between gap-2 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs font-semibold ring-1 ring-emerald-400/40">
+      <div className="glass glass-emerald flex items-center justify-between gap-2 rounded-2xl px-3 py-2 text-xs font-semibold">
         <span className="flex min-w-0 items-center gap-2 text-emerald-200" aria-live="polite">
-          <span aria-hidden>✏️</span>
+          <PencilIcon className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">
             Your board — drag to draw an arrow, tap to ring a square
           </span>
@@ -299,9 +305,9 @@ export function TurnBar() {
         <button
           type="button"
           onClick={() => setDrawMode(false)}
-          className="shrink-0 rounded-lg bg-emerald-400 px-3 py-1 text-xs font-bold text-slate-950 transition-colors hover:bg-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+          className="glass-prominent flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-400 px-3 py-1 text-xs font-bold text-slate-950 [--prominent-glow:rgb(16_185_129/0.5)] transition-[background-color,transform] duration-150 ease-out hover:bg-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 active:scale-[0.97]"
         >
-          ▶ Play on
+          <PlayIcon className="h-3 w-3" /> Play on
         </button>
       </div>
     );
@@ -311,9 +317,9 @@ export function TurnBar() {
   // cleared, so the way out has to be right there.
   if (isPaused) {
     return (
-      <div className="flex items-center justify-between gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-xs font-semibold ring-1 ring-amber-400/40">
+      <div className="glass glass-amber flex items-center justify-between gap-2 rounded-2xl px-3 py-2 text-xs font-semibold">
         <span className="flex items-center gap-2 text-amber-200" aria-live="polite">
-          <span aria-hidden>⏸</span>
+          <PauseIcon className="h-3.5 w-3.5 shrink-0" />
           Paused — {isPlayer ? 'your move' : "opponent's move"} when you resume
         </span>
         <span className="flex items-center gap-3 text-amber-200/70">
@@ -322,16 +328,16 @@ export function TurnBar() {
         <button
           type="button"
           onClick={() => void setPaused(false)}
-          className="shrink-0 rounded-lg bg-amber-400 px-3 py-1 text-xs font-bold text-slate-950 transition-colors hover:bg-amber-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300"
+          className="glass-prominent flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-400 px-3 py-1 text-xs font-bold text-slate-950 [--prominent-glow:rgb(245_158_11/0.5)] transition-[background-color,transform] duration-150 ease-out hover:bg-amber-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 active:scale-[0.97]"
         >
-          ▶ Resume
+          <PlayIcon className="h-3 w-3" /> Resume
         </button>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-900/60 px-3 py-2 text-xs font-semibold ring-1 ring-slate-800">
+    <div className="glass flex items-center justify-between gap-2 rounded-2xl px-3 py-2 text-xs font-semibold">
       <button
         type="button"
         onClick={() => void setPaused(true)}
@@ -339,13 +345,15 @@ export function TurnBar() {
         className="flex items-center gap-2 rounded-lg text-slate-200 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400"
         aria-live="polite"
       >
-        <span aria-hidden className={turn === 'white' ? 'text-slate-100' : 'text-slate-500'}>
-          ●
-        </span>
+        {/* Which side is to move, as a disc in that side's colour. */}
+        <span
+          aria-hidden
+          className={`h-2.5 w-2.5 rounded-full ring-1 ${
+            turn === 'white' ? 'bg-slate-100 ring-white/40' : 'bg-slate-800 ring-white/25'
+          }`}
+        />
         {isPlayer ? 'Your move' : "Opponent's move"}
-        <span aria-hidden className="text-slate-600">
-          ⏸
-        </span>
+        <PauseIcon className="h-3 w-3 text-slate-500" />
       </button>
       <span className="flex items-center gap-3">
         <GameClockReadout />
@@ -360,35 +368,67 @@ export function TurnBar() {
 export const Header = memo(function Header() {
   const engineError = useGameStore((state) => state.engineError);
 
+  const engineStatus = useGameStore((state) => state.engineStatus);
+  /**
+   * On a phone the engine chip is the first thing to go — "Ready" is the
+   * normal state and says nothing. What is left is a dot on the logo while the
+   * engine is still starting or has failed: the only states worth a glance.
+   */
+  const mobileStatus =
+    engineStatus === 'loading' || engineStatus === 'idle' || engineStatus === 'error'
+      ? STATUS_META[engineStatus]
+      : null;
+
   return (
-    <header className="border-b border-slate-800/70 bg-slate-950/80 backdrop-blur">
-      {/* `flex-nowrap` with a `min-w-0` truncating title is what keeps this on a
-          single line down to the narrowest phones. */}
-      <div className="mx-auto flex max-w-[100rem] flex-nowrap items-center justify-between gap-2 px-3 py-2.5 sm:gap-3 sm:px-6 sm:py-3">
-        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          {/* The same mark as the installed-app icon, so the header and the
-              home-screen tile are recognisably one thing. */}
-          <span
-            aria-hidden
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-blue-500 to-emerald-500 sm:h-9 sm:w-9"
-          >
-            <BrandMark className="h-5 w-5 text-slate-50 sm:h-6 sm:w-6" />
+    <header
+      // Sticky glass: the page scrolls beneath it, so the material has the board
+      // and panels to blur instead of a flat fill. Square-cornered and edge to
+      // edge, with only a bottom hairline, as a bar rather than a floating card.
+      // It carries the top safe area itself: were that padding on <html>, a
+      // sticky bar would scroll up into the notch once the page moved.
+      className="glass sticky top-0 z-40 rounded-none pt-[env(safe-area-inset-top)] shadow-none before:hidden [box-shadow:inset_0_-1px_0_rgb(255_255_255/0.06)]"
+    >
+      <div className="mx-auto flex h-14 max-w-[100rem] flex-nowrap items-center justify-between gap-3 px-3 sm:h-16 sm:px-6">
+        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+          {/* The installed-app icon itself, so header and home screen are
+              recognisably one thing. */}
+          <span className="relative shrink-0">
+            <BrandMark className="h-8 w-8 drop-shadow-[0_2px_6px_rgb(2_6_23/0.6)] sm:h-9 sm:w-9" />
+            {mobileStatus && (
+              <span
+                role="status"
+                className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-slate-950 sm:hidden ${mobileStatus.dot}`}
+              >
+                <span className="sr-only">{mobileStatus.description}</span>
+              </span>
+            )}
           </span>
-          <div className="min-w-0">
-            <h1 className="truncate text-sm font-bold leading-tight text-slate-100 sm:text-base">
+          {/* Dropped below 360px, where the logo alone has to carry the name
+              so the controls keep a full-size tap target. */}
+          <div className="hidden min-w-0 min-[360px]:block">
+            <h1 className="truncate text-[0.95rem] font-bold leading-tight tracking-tight text-slate-50 sm:text-base">
               Shatranj AI
             </h1>
-            <p className="hidden text-xs text-slate-500 lg:block">
+            <p className="hidden text-xs text-slate-400 lg:block">
               Play Stockfish. Learn from every move.
             </p>
           </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <RatingChip />
           <EngineStatusChip />
-          <SoundToggle />
-          <CoachSwitch />
+          {/* One capsule for the three player settings, split by hairlines —
+              a grouped toolbar item rather than three chips fighting for the
+              same row. */}
+          <div
+            role="group"
+            aria-label="Player settings"
+            className="glass-control flex h-9 items-center divide-x divide-white/10 overflow-hidden rounded-full"
+          >
+            <RatingChip />
+            <SoundToggle />
+            <CoachSwitch />
+          </div>
         </div>
       </div>
 
