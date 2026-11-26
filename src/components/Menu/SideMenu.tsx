@@ -245,7 +245,7 @@ export const SideMenu = memo(function SideMenu() {
                 <Section title="Play">
                   <ModeSwitch onSwitch={close} />
                   {friend ? (
-                    <TimeControlPicker />
+                    <TimeControlPicker onPick={close} />
                   ) : (
                     <>
                       <ColorChoice />

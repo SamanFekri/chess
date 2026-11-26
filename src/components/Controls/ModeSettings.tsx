@@ -83,12 +83,15 @@ export function ModeSwitch({ onSwitch }: { onSwitch?: () => void } = {}) {
  * Picking one starts a new game with it — changing the clock halfway through a
  * game would not be the same game.
  */
-export function TimeControlPicker() {
+export function TimeControlPicker({ onPick }: { onPick?: () => void } = {}) {
   const timeControl = useGameStore((state) => state.timeControl);
   const requestNewGame = useGameStore((state) => state.requestNewGame);
 
   const choose = (next: TimeControl | null) => {
-    if (!same(next, timeControl)) void requestNewGame({ timeControl: next });
+    if (same(next, timeControl)) return;
+    // Like switching modes: the new game is what you want to see next.
+    onPick?.();
+    void requestNewGame({ timeControl: next });
   };
 
   const chip = (selected: boolean) =>

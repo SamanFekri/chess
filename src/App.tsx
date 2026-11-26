@@ -32,12 +32,12 @@ function BoardColumn({ withEvaluation }: { withEvaluation: boolean }) {
     const bottom = orientation === 'white' ? 'w' : 'b';
     const top = bottom === 'w' ? 'b' : 'w';
     return (
-      <div className="mx-auto w-full max-w-[min(100%,calc(100vh-21rem))] min-w-0">
-        <div className="mb-2">
+      <div className="mx-auto w-full max-w-[min(100%,calc(100vh-17rem))] min-w-0">
+        <div className="mb-1">
           <PlayerStrip color={top} />
         </div>
         <ChessBoard />
-        <div className="mt-2">
+        <div className="mt-1">
           <PlayerStrip color={bottom} />
         </div>
         <div className="mt-3">

@@ -64,25 +64,27 @@ export const PlayerStrip = memo(function PlayerStrip({ color }: { color: Color }
             ? 'Paused'
             : toMove
               ? timeControl && plies === 0
-                ? 'Moves first — clock starts after'
+                ? 'Moves first'
                 : 'To move'
               : null;
 
   return (
     <div
-      className={`glass flex items-center justify-between gap-3 rounded-2xl px-3 py-2 transition-opacity duration-200 ${
-        toMove && !isPaused ? 'glass-emerald' : ''
-      } ${!toMove && inProgress ? 'opacity-70' : ''}`}
+      // No card: a single slim line, so the board keeps the room. The lit
+      // clock pill is what says whose turn it is.
+      className={`flex h-7 items-center justify-between gap-2 px-1 transition-opacity duration-200 ${
+        !toMove && inProgress ? 'opacity-60' : ''
+      }`}
       aria-label={`${name}${status ? `, ${status}` : ''}`}
     >
-      <div className="flex min-w-0 items-center gap-2.5">
+      <div className="flex min-w-0 items-center gap-2">
         <span
           aria-hidden
-          className={`h-4 w-4 shrink-0 rounded-full ring-1 ${
+          className={`h-2.5 w-2.5 shrink-0 rounded-full ring-1 ${
             color === 'w' ? 'bg-slate-100 ring-white/50' : 'bg-slate-900 ring-white/30'
           }`}
         />
-        <span className="text-sm font-bold text-slate-100">{name}</span>
+        <span className="text-xs font-bold text-slate-100">{name}</span>
         {points > 0 && (
           <span
             className="text-xs font-semibold tabular-nums text-emerald-300"
@@ -93,14 +95,16 @@ export const PlayerStrip = memo(function PlayerStrip({ color }: { color: Color }
         )}
         {status && (
           <span
-            className={`truncate text-xs font-semibold ${
+            className={`truncate text-[0.7rem] font-semibold ${
               won
                 ? 'text-emerald-300'
                 : flagged
                   ? 'text-red-300'
                   : isPaused && toMove
                     ? 'text-amber-200'
-                    : 'text-slate-300'
+                    : toMove
+                      ? 'text-emerald-300'
+                      : 'text-slate-300'
             }`}
             aria-live="polite"
           >
@@ -111,12 +115,12 @@ export const PlayerStrip = memo(function PlayerStrip({ color }: { color: Color }
 
       {/* The clock face: its own pane, so it reads as the thing to watch. */}
       <span
-        className={`flex shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-1 font-mono text-lg font-bold tabular-nums leading-none sm:text-xl ${
+        className={`flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 font-mono text-[0.85rem] font-bold tabular-nums leading-none ${
           low && inProgress
             ? 'bg-red-500/90 text-white'
             : running
               ? 'bg-white text-slate-950'
-              : 'bg-white/[0.06] text-slate-300'
+              : 'bg-white/[0.07] text-slate-300'
         }`}
         title={
           timeControl
@@ -130,7 +134,7 @@ export const PlayerStrip = memo(function PlayerStrip({ color }: { color: Color }
             : `${name}: ${describeDuration(usedMs(clock, color))} used`
         }
       >
-        {!timeControl && <ClockIcon className="h-4 w-4 opacity-60" />}
+        {!timeControl && <ClockIcon className="h-3 w-3 opacity-60" />}
         {readout}
       </span>
     </div>
